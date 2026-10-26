@@ -1,49 +1,36 @@
-import 'package:adhan/adhan.dart';
 import 'package:azan/utils/helpers/componenets.dart';
 import 'package:azan/utils/helpers/hive_manager.dart';
 import 'package:azan/utils/routing/routing_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/browser.dart';
+import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:workmanager/workmanager.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
 @pragma('vm:entry-point')
-void callbackDispatcher() async {
-  Workmanager().executeTask((task, inputdata) async {
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
     try {
-      initializeTimeZone();
+      tz_data.initializeTimeZones();
       const AndroidInitializationSettings androidSettings =
           AndroidInitializationSettings('@mipmap/ic_launcher');
       const InitializationSettings initSettings = InitializationSettings(
         android: androidSettings,
       );
-      await flutterLocalNotificationsPlugin.initialize(settings: initSettings);
-
-      final metaData = await HiveManager.getMetaData();
-      String? city = metaData['city'];
-      if (city == null || city.isEmpty) city = await getCity();
-      final todayDate = DateTime.now().toIso8601String().split('T').first;
-      final lastDate = metaData['last-date'];
-
-      if (lastDate == todayDate) return Future.value(true);
-
-      final Coordinates coordinates = Coordinates(
-        metaData['lat'] ?? 30.013056,
-        metaData['long'] ?? 31.208853,
+      await flutterLocalNotificationsPlugin.initialize(
+        settings: initSettings,
       );
 
-      final params = CalculationMethod.muslim_world_league.getParameters();
+      await HiveManager.init();
 
-      final date = DateComponents.from(DateTime.now());
+      // Recalculate prayer times every 8 hours
+      await recalculateAndStorePrayerTimes();
 
-      final prayerTimes = PrayerTimes(coordinates, date, params);
+      // Check athkar reset if a prayer time has arrived
+      await checkAndResetAthkarForPrayerTimes();
 
-      setPrayerTimes(prayerTimes);
-
-      await HiveManager.addUpdateMetaData('last-date', todayDate);
       return Future.value(true);
     } catch (e) {
       return Future.value(false);
@@ -53,15 +40,14 @@ void callbackDispatcher() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize TimeZone database
+  tz_data.initializeTimeZones();
+
+  // Initialize Hive and its adapters/boxes
   await HiveManager.init();
-  Workmanager().initialize(callbackDispatcher);
-  Workmanager().registerPeriodicTask(
-    'daily-prayer-fetch',
-    'daily-prayer-fetch-task',
-    frequency: Duration(hours: 12),
-    constraints: Constraints(networkType: NetworkType.notRequired),
-  );
-  initializeTimeZone();
+
+  // Initialize notifications
   const AndroidInitializationSettings androidSettings =
       AndroidInitializationSettings('@mipmap/ic_launcher');
   const InitializationSettings initializationSettings = InitializationSettings(
@@ -70,6 +56,29 @@ void main() async {
   await flutterLocalNotificationsPlugin.initialize(
     settings: initializationSettings,
   );
+
+  // Initialize Workmanager for 8-hour periodic recalculation
+  try {
+    Workmanager().initialize(callbackDispatcher);
+    Workmanager().registerPeriodicTask(
+      'prayer-recalculate-8h',
+      'daily-prayer-fetch-task',
+      frequency: const Duration(hours: 8),
+      constraints: Constraints(networkType: NetworkType.notRequired),
+    );
+  } catch (e) {
+    debugPrint('Workmanager init error: $e');
+  }
+
+  // App launch handling: ensure city is fetched and prayer times are calculated immediately
+  try {
+    await getCity();
+    await recalculateAndStorePrayerTimes();
+    await checkAndResetAthkarForPrayerTimes();
+  } catch (e) {
+    debugPrint('App launch setup error: $e');
+  }
+
   runApp(const MyApp());
 }
 
@@ -78,6 +87,17 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(routerConfig: GoRouterConfig.routes);
+    return MaterialApp.router(
+      title: 'Azan',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF191A19),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFFCFB68E),
+          surface: Color(0xFF282826),
+        ),
+      ),
+      routerConfig: GoRouterConfig.routes,
+    );
   }
 }

@@ -10,8 +10,10 @@ class PrayerModel {
   String prayerName;
   @HiveField(2)
   DateTime prayerTime;
+  @HiveField(3, defaultValue: true)
+  bool isEnabled;
 
-  PrayerModel(this.prayerID, this.prayerName, this.prayerTime);
+  PrayerModel(this.prayerID, this.prayerName, this.prayerTime, {this.isEnabled = true});
 
   @override
   bool operator ==(Object other) =>

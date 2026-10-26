@@ -1,30 +1,24 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
+import 'package:azan/utils/helpers/componenets.dart';
+import 'package:azan/utils/helpers/ui_helpers.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:azan/main.dart';
-
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  test('Qibla angle calculation from Cairo to Kaaba', () {
+    // Cairo coordinates ~ (30.0444, 31.2357)
+    final qibla = calculateQibla(30.0444, 31.2357);
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Qibla from Cairo is approximately 136° (South-East)
+    expect(qibla.bearing, greaterThan(130.0));
+    expect(qibla.bearing, lessThan(145.0));
+    expect(qibla.directionText, 'SE');
+    expect(qibla.distanceKm, greaterThan(1200.0));
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  test('UI helpers time and duration formatting', () {
+    final dt = DateTime(2026, 10, 27, 4, 52);
+    expect(UiHelpers.formatTime12(dt), '04:52 AM');
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    final duration = const Duration(hours: 2, minutes: 14, seconds: 35);
+    expect(UiHelpers.formatDuration(duration), '02:14:35');
   });
 }

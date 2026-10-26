@@ -20,19 +20,22 @@ class PrayerModelAdapter extends TypeAdapter<PrayerModel> {
       (fields[0] as num).toInt(),
       fields[1] as String,
       fields[2] as DateTime,
+      isEnabled: fields[3] == null ? true : fields[3] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, PrayerModel obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.prayerID)
       ..writeByte(1)
       ..write(obj.prayerName)
       ..writeByte(2)
-      ..write(obj.prayerTime);
+      ..write(obj.prayerTime)
+      ..writeByte(3)
+      ..write(obj.isEnabled);
   }
 
   @override
