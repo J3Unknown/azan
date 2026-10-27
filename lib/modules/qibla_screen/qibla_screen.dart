@@ -45,31 +45,34 @@ class _QiblaScreenState extends State<QiblaScreen> {
       return;
     }
 
-    _compassSubscription = stream.listen((CompassEvent event) {
-      if (!mounted) return;
-      final heading = event.heading;
-      if (heading != null) {
-        // Check alignment with Kaaba (within +/- 3 degrees)
-        final diff = (_qiblaData.bearing - heading).abs() % 360;
-        final isAligned = diff <= 3 || diff >= 357;
+    _compassSubscription = stream.listen(
+      (CompassEvent event) {
+        if (!mounted) return;
+        final heading = event.heading;
+        if (heading != null) {
+          // Check alignment with Kaaba (within +/- 3 degrees)
+          final diff = (_qiblaData.bearing - heading).abs() % 360;
+          final isAligned = diff <= 3 || diff >= 357;
 
-        if (isAligned && !_wasAligned) {
-          HapticFeedback.mediumImpact();
+          if (isAligned && !_wasAligned) {
+            HapticFeedback.mediumImpact();
+          }
+          _wasAligned = isAligned;
+
+          setState(() {
+            _deviceHeading = heading;
+            _hasCompassSensor = true;
+          });
         }
-        _wasAligned = isAligned;
-
-        setState(() {
-          _deviceHeading = heading;
-          _hasCompassSensor = true;
-        });
-      }
-    }, onError: (_) {
-      if (mounted) {
-        setState(() {
-          _hasCompassSensor = false;
-        });
-      }
-    });
+      },
+      onError: (_) {
+        if (mounted) {
+          setState(() {
+            _hasCompassSensor = false;
+          });
+        }
+      },
+    );
   }
 
   @override
@@ -188,13 +191,16 @@ class _QiblaScreenState extends State<QiblaScreen> {
               if (!_hasCompassSensor)
                 Container(
                   margin: const EdgeInsets.only(bottom: 12),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.amber.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
-                    border:
-                        Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: Colors.amber.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -215,15 +221,18 @@ class _QiblaScreenState extends State<QiblaScreen> {
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          vertical: 16, horizontal: 14),
+                        vertical: 16,
+                        horizontal: 14,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF282826),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isFacingQibla
                               ? ColorsManager.primaryGold
-                              : ColorsManager.primaryGold
-                                  .withValues(alpha: 0.2),
+                              : ColorsManager.primaryGold.withValues(
+                                  alpha: 0.2,
+                                ),
                           width: isFacingQibla ? 1.5 : 1.0,
                         ),
                       ),
@@ -253,13 +262,16 @@ class _QiblaScreenState extends State<QiblaScreen> {
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          vertical: 16, horizontal: 14),
+                        vertical: 16,
+                        horizontal: 14,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF282826),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color:
-                              ColorsManager.primaryGold.withValues(alpha: 0.2),
+                          color: ColorsManager.primaryGold.withValues(
+                            alpha: 0.2,
+                          ),
                         ),
                       ),
                       child: Column(
@@ -291,8 +303,10 @@ class _QiblaScreenState extends State<QiblaScreen> {
               // Coordinates Details
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 16,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF20201E),
                   borderRadius: BorderRadius.circular(12),
@@ -303,12 +317,16 @@ class _QiblaScreenState extends State<QiblaScreen> {
                     Text(
                       'Heading: ${currentHeading.toStringAsFixed(1)}°',
                       style: const TextStyle(
-                          color: ColorsManager.textMuted, fontSize: 11),
+                        color: ColorsManager.textMuted,
+                        fontSize: 11,
+                      ),
                     ),
                     const Text(
                       'Kaaba: 21.42° N, 39.83° E',
                       style: TextStyle(
-                          color: ColorsManager.primaryGoldDark, fontSize: 11),
+                        color: ColorsManager.primaryGoldDark,
+                        fontSize: 11,
+                      ),
                     ),
                   ],
                 ),
