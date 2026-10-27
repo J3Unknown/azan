@@ -4,6 +4,7 @@ import 'package:azan/utils/helpers/colors_manager.dart';
 import 'package:azan/utils/helpers/componenets.dart';
 import 'package:azan/utils/helpers/hive_manager.dart';
 import 'package:azan/utils/helpers/ui_helpers.dart';
+import 'package:azan/services/prayer_home_widget_service.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -62,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _prayers = prayers;
       });
     }
+    await PrayerHomeWidgetService.update(prayers);
   }
 
   Future<void> _togglePrayer(PrayerModel prayer, bool value) async {
@@ -80,7 +82,8 @@ class _HomeScreenState extends State<HomeScreen> {
   /// "the current prayer where the prayer didn't pass quarter and hour from it's athan time
   /// will be the main section, if passed then the next prayer will be the main while all prayer
   /// times remain in the list with ability to disable them"
-  ({PrayerModel? prayer, bool isCurrentActive, Duration timeDifference}) _getMainPrayerInfo() {
+  ({PrayerModel? prayer, bool isCurrentActive, Duration timeDifference})
+  _getMainPrayerInfo() {
     if (_prayers.isEmpty) {
       return (
         prayer: null,
@@ -110,11 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
     for (var prayer in _prayers) {
       if (prayer.prayerTime.isAfter(now)) {
         final diff = prayer.prayerTime.difference(now);
-        return (
-          prayer: prayer,
-          isCurrentActive: false,
-          timeDifference: diff,
-        );
+        return (prayer: prayer, isCurrentActive: false, timeDifference: diff);
       }
     }
 
@@ -126,11 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final tomorrowFajr = fajr.prayerTime.add(const Duration(days: 1));
     final diff = tomorrowFajr.difference(now);
 
-    return (
-      prayer: fajr,
-      isCurrentActive: false,
-      timeDifference: diff,
-    );
+    return (prayer: fajr, isCurrentActive: false, timeDifference: diff);
   }
 
   @override
@@ -173,7 +168,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 // Main Highlight Card
                 if (mainPrayer != null)
-                  _buildMainPrayerCard(mainPrayer, mainInfo.isCurrentActive, mainInfo.timeDifference),
+                  _buildMainPrayerCard(
+                    mainPrayer,
+                    mainInfo.isCurrentActive,
+                    mainInfo.timeDifference,
+                  ),
 
                 const SizedBox(height: 32),
 
@@ -209,19 +208,49 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        Text(
-          UiHelpers.formatDate(_currentTime),
-          style: const TextStyle(
-            color: ColorsManager.textSecondary,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              UiHelpers.formatDate(_currentTime),
+              style: const TextStyle(
+                color: ColorsManager.textSecondary,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: 'Add prayer times widget',
+              icon: const Icon(
+                Icons.widgets_outlined,
+                color: ColorsManager.primaryGold,
+                size: 20,
+              ),
+              visualDensity: VisualDensity.compact,
+              onPressed: () async {
+                try {
+                  await PrayerHomeWidgetService.requestPin();
+                } catch (error) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Could not add widget: $error')),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildMainPrayerCard(PrayerModel prayer, bool isCurrentActive, Duration duration) {
+  Widget _buildMainPrayerCard(
+    PrayerModel prayer,
+    bool isCurrentActive,
+    Duration duration,
+  ) {
     // Split time into digits and period (e.g., "04:52" and "AM")
     final timeStr = UiHelpers.formatTime12(prayer.prayerTime);
     final parts = timeStr.split(' ');
@@ -390,7 +419,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Switch(
                     value: prayer.isEnabled,
                     activeThumbColor: ColorsManager.primaryGold,
-                    activeTrackColor: ColorsManager.primaryGoldDark.withValues(alpha: 0.7),
+                    activeTrackColor: ColorsManager.primaryGoldDark.withValues(
+                      alpha: 0.7,
+                    ),
                     inactiveThumbColor: ColorsManager.textMuted,
                     inactiveTrackColor: const Color(0xFF2E2E2C),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
