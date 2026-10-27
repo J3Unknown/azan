@@ -76,7 +76,6 @@ String _bearingToDirection(double deg) {
   return 'NW';
 }
 
-/// Schedules adhan notification for an enabled prayer
 Future<void> scheduleTask(PrayerModel model) async {
   if (!model.isEnabled) {
     await cancelNotification(model.prayerID);
@@ -123,7 +122,7 @@ Future<void> scheduleTask(PrayerModel model) async {
       id: model.prayerID,
       title: 'Prayer Time',
       body: 'It\'s time for ${model.prayerName} prayer',
-      scheduledDate: tz.TZDateTime.from(nextPrayerTime, tz.local),
+      scheduledDate: tz.TZDateTime.from(model.prayerTime, tz.local),
       notificationDetails: NotificationDetails(android: androidDetails),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
@@ -196,7 +195,6 @@ Future<void> scheduleReminderNotification(ReminderModel reminder) async {
   }
 }
 
-/// Get device city and coordinates with fallback to Cairo, Egypt
 Future<String> getCity() async {
   final cachedCity = HiveManager.getMeta('city');
   if (cachedCity != null && (cachedCity as String).isNotEmpty) {
@@ -268,7 +266,6 @@ void _setDefaultCairo() {
   HiveManager.addUpdateMetaData('city', 'Cairo, Egypt');
 }
 
-/// Calculate prayer times and update Hive store, preserving user enable/disable preferences
 Future<void> recalculateAndStorePrayerTimes() async {
   try {
     double lat = (HiveManager.getMeta('lat') as num?)?.toDouble() ?? 30.0444;
