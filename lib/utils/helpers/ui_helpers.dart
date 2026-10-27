@@ -2,13 +2,13 @@ class UiHelpers {
   /// Formats date like: "Tuesday, 27 Oct"
   static String formatDate(DateTime dt) {
     const days = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday'
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun'
     ];
     const months = [
       'Jan',

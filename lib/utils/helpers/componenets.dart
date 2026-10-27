@@ -38,7 +38,8 @@ QiblaData calculateQibla(double userLat, double userLng) {
   final deltaLambda = lambda2 - lambda1;
 
   final y = math.sin(deltaLambda);
-  final x = math.cos(phi1) * math.tan(phi2) - math.sin(phi1) * math.cos(deltaLambda);
+  final x =
+      math.cos(phi1) * math.tan(phi2) - math.sin(phi1) * math.cos(deltaLambda);
 
   double bearingRad = math.atan2(y, x);
   double bearingDeg = (bearingRad * (180.0 / math.pi) + 360.0) % 360.0;
@@ -47,7 +48,8 @@ QiblaData calculateQibla(double userLat, double userLng) {
   const earthRadiusKm = 6371.0;
   final dLat = phi2 - phi1;
   final dLon = lambda2 - lambda1;
-  final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+  final a =
+      math.sin(dLat / 2) * math.sin(dLat / 2) +
       math.cos(phi1) * math.cos(phi2) * math.sin(dLon / 2) * math.sin(dLon / 2);
   final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   final distance = earthRadiusKm * c;
@@ -73,31 +75,23 @@ String _bearingToDirection(double deg) {
   return 'NW';
 }
 
-/// Schedules adhan notification for an enabled prayer
 Future<void> scheduleTask(PrayerModel model) async {
   if (!model.isEnabled) {
     await cancelNotification(model.prayerID);
     return;
   }
 
-  final now = DateTime.now();
-  var nextPrayerTime = DateTime(
-    now.year,
-    now.month,
-    now.day,
-    model.prayerTime.hour,
-    model.prayerTime.minute,
-  );
-  if (!nextPrayerTime.isAfter(now)) {
-    nextPrayerTime = nextPrayerTime.add(const Duration(days: 1));
-  }
+  if (model.prayerTime.isBefore(DateTime.now())) return;
 
-  final bool isFajr = model.prayerName.toLowerCase() == 'fajr' || model.prayerID == 1;
+  final bool isFajr =
+      model.prayerName.toLowerCase() == 'fajr' || model.prayerID == 1;
   final String soundName = isFajr ? 'fajr' : 'other';
-  // Version channel IDs so Android applies the current custom sound even if an
-  // older channel with stale sound settings was already created on the device.
-  final String channelId = isFajr ? 'adhan-fajr-channel-v2' : 'adhan-other-channel-v2';
-  final String channelName = isFajr ? 'Fajr Prayer Adhan' : 'Other Prayers Adhan';
+  final String channelId = isFajr
+      ? 'adhan-fajr-channel'
+      : 'adhan-other-channel';
+  final String channelName = isFajr
+      ? 'Fajr Prayer Adhan'
+      : 'Other Prayers Adhan';
 
   final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
     channelId,
@@ -115,7 +109,7 @@ Future<void> scheduleTask(PrayerModel model) async {
       id: model.prayerID,
       title: 'Prayer Time',
       body: 'It\'s time for ${model.prayerName} prayer',
-      scheduledDate: tz.TZDateTime.from(nextPrayerTime, tz.local),
+      scheduledDate: tz.TZDateTime.from(model.prayerTime, tz.local),
       notificationDetails: NotificationDetails(android: androidDetails),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
@@ -188,7 +182,6 @@ Future<void> scheduleReminderNotification(ReminderModel reminder) async {
   }
 }
 
-/// Get device city and coordinates with fallback to Cairo, Egypt
 Future<String> getCity() async {
   final cachedCity = HiveManager.getMeta('city');
   if (cachedCity != null && (cachedCity as String).isNotEmpty) {
@@ -217,7 +210,9 @@ Future<String> getCity() async {
     }
 
     Position position = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.medium,
+      ),
     );
 
     List<gc.Placemark> places = await gc.Geocoding().placemarkFromCoordinates(
@@ -230,7 +225,11 @@ Future<String> getCity() async {
 
     if (places.isNotEmpty) {
       gc.Placemark place = places.first;
-      cityName = place.locality ?? place.subAdministrativeArea ?? place.administrativeArea ?? 'Cairo';
+      cityName =
+          place.locality ??
+          place.subAdministrativeArea ??
+          place.administrativeArea ??
+          'Cairo';
       countryName = place.country ?? 'Egypt';
     }
 
@@ -254,7 +253,6 @@ void _setDefaultCairo() {
   HiveManager.addUpdateMetaData('city', 'Cairo, Egypt');
 }
 
-/// Calculate prayer times and update Hive store, preserving user enable/disable preferences
 Future<void> recalculateAndStorePrayerTimes() async {
   try {
     double lat = (HiveManager.getMeta('lat') as num?)?.toDouble() ?? 30.0444;
@@ -332,19 +330,28 @@ Future<void> checkAndResetAthkarForPrayerTimes() async {
   if (prayers.isEmpty) return;
 
   final now = DateTime.now();
-  final lastResetPrayerId = HiveManager.getMeta('last_reset_prayer_id', defaultValue: -1);
+  final lastResetPrayerId = HiveManager.getMeta(
+    'last_reset_prayer_id',
+    defaultValue: -1,
+  );
 
   // Find if there is a prayer that happened recently and hasn't been reset yet
   for (var prayer in prayers) {
     // If prayer time is in the past (today) and this prayer was not yet marked as reset
     if (now.isAfter(prayer.prayerTime)) {
       final prayerDay = prayer.prayerTime.day;
-      final lastResetDay = HiveManager.getMeta('last_reset_day', defaultValue: -1);
+      final lastResetDay = HiveManager.getMeta(
+        'last_reset_day',
+        defaultValue: -1,
+      );
 
       if (lastResetPrayerId != prayer.prayerID || lastResetDay != prayerDay) {
         // Reset athkar count
         await HiveManager.resetAthkarCounts();
-        await HiveManager.addUpdateMetaData('last_reset_prayer_id', prayer.prayerID);
+        await HiveManager.addUpdateMetaData(
+          'last_reset_prayer_id',
+          prayer.prayerID,
+        );
         await HiveManager.addUpdateMetaData('last_reset_day', prayerDay);
         log('Athkar counts reset for prayer: ${prayer.prayerName}');
       }

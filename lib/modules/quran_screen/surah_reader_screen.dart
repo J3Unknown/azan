@@ -25,13 +25,14 @@ class SurahReaderScreen extends StatefulWidget {
   State<SurahReaderScreen> createState() => _SurahReaderScreenState();
 }
 
-class _SurahReaderScreenState extends State<SurahReaderScreen> {
+class _SurahReaderScreenState extends State<SurahReaderScreen>
+    with WidgetsBindingObserver {
   late Future<List<QuranAyah>> _versesFuture;
   late ReciterModel _selectedReciter;
   final AudioPlayer _audioPlayer = _quranAudioPlayer;
 
   bool _isLocallyCached = false;
-  bool _showTranslation = true;
+  bool _showTranslation = false;
   bool _showTransliteration = false;
 
   // Audio Playback State
@@ -47,15 +48,49 @@ class _SurahReaderScreenState extends State<SurahReaderScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _selectedReciter = widget.initialReciter ?? availableReciters.first;
     _isLocallyCached = HiveManager.isSurahCached(widget.surah.traditionalOrder);
     _loadVerses();
     _initAudioListeners();
+    _restorePlaybackState();
+  }
+
+  void _restorePlaybackState() {
+    final mediaItem = _audioPlayer.sequenceState?.currentSource?.tag;
+    if (mediaItem is! MediaItem) return;
+
+    final id = mediaItem.id;
+    final surahId = 'surah_${widget.surah.traditionalOrder}';
+    String? playbackKey;
+    if (id == surahId) {
+      playbackKey = surahId;
+    } else if (id.startsWith('${widget.surah.traditionalOrder}_')) {
+      final ayahNumber = id.substring('${widget.surah.traditionalOrder}_'.length);
+      playbackKey = 'ayah_$ayahNumber';
+    }
+    if (playbackKey == null) return;
+
+    final reciter = availableReciters.where((item) => item.name == mediaItem.artist);
+    if (reciter.isNotEmpty) _selectedReciter = reciter.first;
+    _currentlyPlayingKey = playbackKey;
+    _isPlaying = _audioPlayer.playing;
+    _isLoadingAudio = _audioPlayer.processingState == ProcessingState.loading ||
+        _audioPlayer.processingState == ProcessingState.buffering;
+    _currentPosition = _audioPlayer.position;
+    _totalDuration = _audioPlayer.duration ?? Duration.zero;
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _restorePlaybackState();
   }
 
   void _initAudioListeners() {
     _playerStateSubscription = _audioPlayer.playerStateStream.listen((state) {
       if (!mounted) return;
+      _restorePlaybackState();
       setState(() {
         _isPlaying = state.playing;
         if (state.processingState == ProcessingState.completed) {
@@ -85,6 +120,7 @@ class _SurahReaderScreenState extends State<SurahReaderScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _playerStateSubscription?.cancel();
     _positionSubscription?.cancel();
     _durationSubscription?.cancel();
