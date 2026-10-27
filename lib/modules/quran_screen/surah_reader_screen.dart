@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:azan/models/reciter_model.dart';
 import 'package:azan/services/quran_api_service.dart';
 import 'package:azan/utils/helpers/colors_manager.dart';
 import 'package:azan/utils/helpers/hive_manager.dart';
 import 'package:azan/utils/helpers/quran_data.dart';
 import 'package:flutter/material.dart';
+import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
+
+final AudioPlayer _quranAudioPlayer = AudioPlayer();
 
 class SurahReaderScreen extends StatefulWidget {
   final SurahItem surah;
@@ -23,7 +28,7 @@ class SurahReaderScreen extends StatefulWidget {
 class _SurahReaderScreenState extends State<SurahReaderScreen> {
   late Future<List<QuranAyah>> _versesFuture;
   late ReciterModel _selectedReciter;
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  final AudioPlayer _audioPlayer = _quranAudioPlayer;
 
   bool _isLocallyCached = false;
   bool _showTranslation = true;
@@ -35,6 +40,9 @@ class _SurahReaderScreenState extends State<SurahReaderScreen> {
   bool _isLoadingAudio = false;
   Duration _currentPosition = Duration.zero;
   Duration _totalDuration = Duration.zero;
+  StreamSubscription<PlayerState>? _playerStateSubscription;
+  StreamSubscription<Duration>? _positionSubscription;
+  StreamSubscription<Duration?>? _durationSubscription;
 
   @override
   void initState() {
@@ -46,7 +54,7 @@ class _SurahReaderScreenState extends State<SurahReaderScreen> {
   }
 
   void _initAudioListeners() {
-    _audioPlayer.playerStateStream.listen((state) {
+    _playerStateSubscription = _audioPlayer.playerStateStream.listen((state) {
       if (!mounted) return;
       setState(() {
         _isPlaying = state.playing;
@@ -58,14 +66,14 @@ class _SurahReaderScreenState extends State<SurahReaderScreen> {
       });
     });
 
-    _audioPlayer.positionStream.listen((pos) {
+    _positionSubscription = _audioPlayer.positionStream.listen((pos) {
       if (!mounted) return;
       setState(() {
         _currentPosition = pos;
       });
     });
 
-    _audioPlayer.durationStream.listen((dur) {
+    _durationSubscription = _audioPlayer.durationStream.listen((dur) {
       if (!mounted) return;
       if (dur != null) {
         setState(() {
@@ -77,7 +85,9 @@ class _SurahReaderScreenState extends State<SurahReaderScreen> {
 
   @override
   void dispose() {
-    _audioPlayer.dispose();
+    _playerStateSubscription?.cancel();
+    _positionSubscription?.cancel();
+    _durationSubscription?.cancel();
     super.dispose();
   }
 
@@ -115,7 +125,15 @@ class _SurahReaderScreenState extends State<SurahReaderScreen> {
     try {
       final url = _selectedReciter.getFullSurahAudioUrl(widget.surah.traditionalOrder);
       await _audioPlayer.stop();
-      await _audioPlayer.setUrl(url);
+      await _audioPlayer.setAudioSource(AudioSource.uri(
+        Uri.parse(url),
+        tag: MediaItem(
+          id: audioKey,
+          album: 'The Holy Quran',
+          title: 'Surah ${widget.surah.name}',
+          artist: _selectedReciter.name,
+        ),
+      ));
       await _audioPlayer.play();
     } catch (e) {
       if (mounted) {
@@ -153,7 +171,15 @@ class _SurahReaderScreenState extends State<SurahReaderScreen> {
     try {
       final url = _selectedReciter.getAyahAudioUrl(widget.surah.traditionalOrder, ayah.ayah);
       await _audioPlayer.stop();
-      await _audioPlayer.setUrl(url);
+      await _audioPlayer.setAudioSource(AudioSource.uri(
+        Uri.parse(url),
+        tag: MediaItem(
+          id: '${widget.surah.traditionalOrder}_${ayah.ayah}',
+          album: 'The Holy Quran • ${widget.surah.name}',
+          title: 'Ayah ${ayah.ayah}',
+          artist: _selectedReciter.name,
+        ),
+      ));
       await _audioPlayer.play();
     } catch (e) {
       if (mounted) {

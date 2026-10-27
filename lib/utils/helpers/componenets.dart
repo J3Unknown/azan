@@ -80,11 +80,23 @@ Future<void> scheduleTask(PrayerModel model) async {
     return;
   }
 
-  if (model.prayerTime.isBefore(DateTime.now())) return;
+  final now = DateTime.now();
+  var nextPrayerTime = DateTime(
+    now.year,
+    now.month,
+    now.day,
+    model.prayerTime.hour,
+    model.prayerTime.minute,
+  );
+  if (!nextPrayerTime.isAfter(now)) {
+    nextPrayerTime = nextPrayerTime.add(const Duration(days: 1));
+  }
 
   final bool isFajr = model.prayerName.toLowerCase() == 'fajr' || model.prayerID == 1;
   final String soundName = isFajr ? 'fajr' : 'other';
-  final String channelId = isFajr ? 'adhan-fajr-channel' : 'adhan-other-channel';
+  // Version channel IDs so Android applies the current custom sound even if an
+  // older channel with stale sound settings was already created on the device.
+  final String channelId = isFajr ? 'adhan-fajr-channel-v2' : 'adhan-other-channel-v2';
   final String channelName = isFajr ? 'Fajr Prayer Adhan' : 'Other Prayers Adhan';
 
   final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
@@ -103,7 +115,7 @@ Future<void> scheduleTask(PrayerModel model) async {
       id: model.prayerID,
       title: 'Prayer Time',
       body: 'It\'s time for ${model.prayerName} prayer',
-      scheduledDate: tz.TZDateTime.from(model.prayerTime, tz.local),
+      scheduledDate: tz.TZDateTime.from(nextPrayerTime, tz.local),
       notificationDetails: NotificationDetails(android: androidDetails),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );

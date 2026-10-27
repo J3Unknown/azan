@@ -166,7 +166,9 @@ class _QiblaScreenState extends State<QiblaScreen> {
                     ? '✨ You are facing the Holy Kaaba!'
                     : 'Turn your device until the needle points up',
                 style: TextStyle(
-                  color: isFacingQibla ? ColorsManager.primaryGoldLight : ColorsManager.textMuted,
+                  color: isFacingQibla
+                      ? ColorsManager.primaryGoldLight
+                      : ColorsManager.textMuted,
                   fontSize: 13,
                   fontWeight: isFacingQibla ? FontWeight.w600 : FontWeight.w400,
                 ),
@@ -186,11 +188,13 @@ class _QiblaScreenState extends State<QiblaScreen> {
               if (!_hasCompassSensor)
                 Container(
                   margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.amber.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                    border:
+                        Border.all(color: Colors.amber.withValues(alpha: 0.3)),
                   ),
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -210,14 +214,16 @@ class _QiblaScreenState extends State<QiblaScreen> {
                 children: [
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 16, horizontal: 14),
                       decoration: BoxDecoration(
                         color: const Color(0xFF282826),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isFacingQibla
                               ? ColorsManager.primaryGold
-                              : ColorsManager.primaryGold.withValues(alpha: 0.2),
+                              : ColorsManager.primaryGold
+                                  .withValues(alpha: 0.2),
                           width: isFacingQibla ? 1.5 : 1.0,
                         ),
                       ),
@@ -246,12 +252,14 @@ class _QiblaScreenState extends State<QiblaScreen> {
                   const SizedBox(width: 14),
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 16, horizontal: 14),
                       decoration: BoxDecoration(
                         color: const Color(0xFF282826),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: ColorsManager.primaryGold.withValues(alpha: 0.2),
+                          color:
+                              ColorsManager.primaryGold.withValues(alpha: 0.2),
                         ),
                       ),
                       child: Column(
@@ -283,7 +291,8 @@ class _QiblaScreenState extends State<QiblaScreen> {
               // Coordinates Details
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
                 decoration: BoxDecoration(
                   color: const Color(0xFF20201E),
                   borderRadius: BorderRadius.circular(12),
@@ -293,11 +302,13 @@ class _QiblaScreenState extends State<QiblaScreen> {
                   children: [
                     Text(
                       'Heading: ${currentHeading.toStringAsFixed(1)}°',
-                      style: const TextStyle(color: ColorsManager.textMuted, fontSize: 11),
+                      style: const TextStyle(
+                          color: ColorsManager.textMuted, fontSize: 11),
                     ),
                     const Text(
                       'Kaaba: 21.42° N, 39.83° E',
-                      style: TextStyle(color: ColorsManager.primaryGoldDark, fontSize: 11),
+                      style: TextStyle(
+                          color: ColorsManager.primaryGoldDark, fontSize: 11),
                     ),
                   ],
                 ),
@@ -315,7 +326,8 @@ class _QiblaScreenState extends State<QiblaScreen> {
     // Compass dial rotates by -phoneHeading so North on the dial matches real world North
     final dialAngleRad = -phoneHeading * (math.pi / 180.0);
     // Kaaba angle relative to the device's top
-    final kaabaAngleRad = (_qiblaData.bearing - phoneHeading) * (math.pi / 180.0);
+    final kaabaAngleRad =
+        (_qiblaData.bearing - phoneHeading) * (math.pi / 180.0);
 
     return SizedBox(
       width: size,
@@ -476,7 +488,9 @@ class _QiblaScreenState extends State<QiblaScreen> {
             height: 24,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isFacingQibla ? ColorsManager.primaryGoldLight : ColorsManager.primaryGold,
+              color: isFacingQibla
+                  ? ColorsManager.primaryGoldLight
+                  : ColorsManager.primaryGold,
               border: Border.all(color: const Color(0xFF191A19), width: 3),
               boxShadow: [
                 BoxShadow(
@@ -495,7 +509,9 @@ class _QiblaScreenState extends State<QiblaScreen> {
               height: 10,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isFacingQibla ? ColorsManager.primaryGold : Colors.white.withValues(alpha: 0.3),
+                color: isFacingQibla
+                    ? ColorsManager.primaryGold
+                    : Colors.white.withValues(alpha: 0.3),
               ),
             ),
           ),

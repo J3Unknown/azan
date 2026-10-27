@@ -3,6 +3,7 @@ import 'package:azan/utils/helpers/hive_manager.dart';
 import 'package:azan/utils/routing/routing_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:workmanager/workmanager.dart';
 
@@ -41,6 +42,12 @@ void callbackDispatcher() {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'com.example.azan.quran.audio',
+    androidNotificationChannelName: 'Quran playback',
+    androidNotificationOngoing: true,
+  );
+
   // Initialize TimeZone database
   tz_data.initializeTimeZones();
 
@@ -56,6 +63,10 @@ void main() async {
   await flutterLocalNotificationsPlugin.initialize(
     settings: initializationSettings,
   );
+  final androidNotifications = flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+  await androidNotifications?.requestNotificationsPermission();
+  await androidNotifications?.requestExactAlarmsPermission();
 
   // Initialize Workmanager for 8-hour periodic recalculation
   try {
