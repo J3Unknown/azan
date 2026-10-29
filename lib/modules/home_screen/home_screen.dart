@@ -20,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<PrayerModel> _prayers = [];
   String _city = 'Cairo, Egypt';
   DateTime _currentTime = DateTime.now();
+  bool _isRefreshingPrayerTimes = false;
 
   @override
   void initState() {
@@ -75,6 +76,17 @@ class _HomeScreenState extends State<HomeScreen> {
       await scheduleTask(prayer);
     } else {
       await cancelNotification(prayer.prayerID);
+    }
+  }
+
+  Future<void> _refreshPrayerTimes() async {
+    if (_isRefreshingPrayerTimes) return;
+    setState(() => _isRefreshingPrayerTimes = true);
+    try {
+      await recalculateAndStorePrayerTimes();
+      await _loadData();
+    } finally {
+      if (mounted) setState(() => _isRefreshingPrayerTimes = false);
     }
   }
 
@@ -220,6 +232,18 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(width: 4),
+            IconButton(
+              tooltip: 'Update prayer times',
+              visualDensity: VisualDensity.compact,
+              icon: _isRefreshingPrayerTimes
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh, color: ColorsManager.primaryGold, size: 20),
+              onPressed: _isRefreshingPrayerTimes ? null : _refreshPrayerTimes,
+            ),
             IconButton(
               tooltip: 'Add prayer times widget',
               icon: const Icon(

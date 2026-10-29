@@ -1,5 +1,7 @@
 import 'dart:developer';
 import 'dart:math' as math;
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:adhan/adhan.dart';
 import 'package:azan/main.dart';
 import 'package:azan/models/prayer_model.dart';
@@ -96,12 +98,12 @@ Future<void> scheduleTask(PrayerModel model) async {
 
   final bool isFajr =
       model.prayerName.toLowerCase() == 'fajr' || model.prayerID == 1;
-  final String soundName = isFajr ? 'fajr' : 'other';
+  final String soundName = isFajr ? 'fajr' : 'new_others';
   // Version channel IDs so Android applies the current custom sound even if an
   // older channel with stale sound settings was already created on the device.
   final String channelId = isFajr
-      ? 'adhan-fajr-channel-v2'
-      : 'adhan-other-channel-v2';
+      ? 'adhan-fajr-channel-v3'
+      : 'adhan-other-channel-v3';
   final String channelName = isFajr
       ? 'Fajr Prayer Adhan'
       : 'Other Prayers Adhan';
@@ -271,6 +273,42 @@ Future<void> recalculateAndStorePrayerTimes() async {
     double lat = (HiveManager.getMeta('lat') as num?)?.toDouble() ?? 30.0444;
     double lng = (HiveManager.getMeta('long') as num?)?.toDouble() ?? 31.2357;
 
+    try {
+      final now = DateTime.now();
+      final date = '${now.day.toString().padLeft(2, '0')}-'
+          '${now.month.toString().padLeft(2, '0')}-${now.year}';
+      final uri = Uri.https('api.aladhan.com', '/v1/timings/$date', {
+        'latitude': lat.toString(),
+        'longitude': lng.toString(),
+        'method': '5', // Egyptian General Authority of Survey
+        'school': '0',
+        'iso8601': 'false',
+      });
+      final response = await http.get(uri).timeout(const Duration(seconds: 12));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final timings = (json['data'] as Map<String, dynamic>)['timings']
+            as Map<String, dynamic>;
+        DateTime parsePrayerTime(String name) {
+          final value = (timings[name] as String).split(' ').first;
+          final parts = value.split(':');
+          return DateTime(now.year, now.month, now.day,
+              int.parse(parts[0]), int.parse(parts[1]));
+        }
+
+        await setPrayerTimesFromValues(
+          parsePrayerTime('Fajr'), parsePrayerTime('Dhuhr'),
+          parsePrayerTime('Asr'), parsePrayerTime('Maghrib'),
+          parsePrayerTime('Isha'),
+        );
+        await HiveManager.addUpdateMetaData(
+            'last-date', now.toIso8601String().split('T').first);
+        return;
+      }
+    } catch (e) {
+      log('Prayer times API unavailable; using local calculation: $e');
+    }
+
     final Coordinates coordinates = Coordinates(lat, lng);
     final params = CalculationMethod.egyptian.getParameters();
     params.madhab = Madhab.shafi;
@@ -285,6 +323,28 @@ Future<void> recalculateAndStorePrayerTimes() async {
   } catch (e, stack) {
     log('Error recalculating prayer times: $e\n$stack');
   }
+}
+
+Future<void> setPrayerTimesFromValues(
+  DateTime fajr, DateTime dhuhr, DateTime asr, DateTime maghrib, DateTime isha,
+) async {
+  final existing = {for (final prayer in HiveManager.getPrayer()) prayer.prayerID: prayer.isEnabled};
+  final prayers = [
+    PrayerModel(1, 'Fajr', fajr, isEnabled: existing[1] ?? true),
+    PrayerModel(2, 'Dhuhr', dhuhr, isEnabled: existing[2] ?? true),
+    PrayerModel(3, 'Asr', asr, isEnabled: existing[3] ?? true),
+    PrayerModel(4, 'Maghrib', maghrib, isEnabled: existing[4] ?? true),
+    PrayerModel(5, 'Isha', isha, isEnabled: existing[5] ?? true),
+  ];
+  for (final prayer in prayers) {
+    await HiveManager.addUpdatePrayer(prayer);
+    if (prayer.isEnabled) {
+      await scheduleTask(prayer);
+    } else {
+      await cancelNotification(prayer.prayerID);
+    }
+  }
+  await PrayerHomeWidgetService.update(prayers);
 }
 
 Future<void> setPrayerTimes(PrayerTimes prayerTimes) async {
