@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:azan/utils/helpers/colors_manager.dart';
+import 'package:azan/utils/helpers/app_language.dart';
 import 'package:azan/utils/helpers/componenets.dart';
 import 'package:azan/utils/helpers/hive_manager.dart';
 import 'package:azan/utils/helpers/ui_helpers.dart';
@@ -10,7 +11,9 @@ import 'package:flutter_compass/flutter_compass.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class QiblaScreen extends StatefulWidget {
-  const QiblaScreen({super.key});
+  final bool isActive;
+
+  const QiblaScreen({super.key, this.isActive = false});
 
   @override
   State<QiblaScreen> createState() => _QiblaScreenState();
@@ -33,7 +36,21 @@ class _QiblaScreenState extends State<QiblaScreen> {
     super.initState();
     _loadLocation();
     _qiblaData = calculateQibla(_userLat, _userLng);
-    _initCompass();
+    if (widget.isActive) _initCompass();
+  }
+
+  @override
+  void didUpdateWidget(covariant QiblaScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive == widget.isActive) return;
+    if (widget.isActive) {
+      _initCompass();
+    } else {
+      _compassSubscription?.cancel();
+      _compassSubscription = null;
+      _deviceHeading = null;
+      _wasAligned = false;
+    }
   }
 
   void _initCompass() {
@@ -141,7 +158,11 @@ class _QiblaScreenState extends State<QiblaScreen> {
                     ],
                   ),
                   Text(
-                    UiHelpers.formatDate(_currentDate),
+                    UiHelpers.formatDate(
+                      _currentDate,
+                      arabic:
+                          Localizations.localeOf(context).languageCode == 'ar',
+                    ),
                     style: const TextStyle(
                       color: ColorsManager.textSecondary,
                       fontSize: 14,
@@ -153,8 +174,8 @@ class _QiblaScreenState extends State<QiblaScreen> {
               const SizedBox(height: 20),
 
               // Title
-              const Text(
-                'Qibla Direction',
+              Text(
+                context.tr('Qibla Direction'),
                 style: TextStyle(
                   color: ColorsManager.textPrimary,
                   fontSize: 24,
@@ -166,8 +187,8 @@ class _QiblaScreenState extends State<QiblaScreen> {
               const SizedBox(height: 4),
               Text(
                 isFacingQibla
-                    ? '✨ You are facing the Holy Kaaba!'
-                    : 'Turn your device until the needle points up',
+                    ? context.tr('✨ You are facing the Holy Kaaba!')
+                    : context.tr('Turn your device until the needle points up'),
                 style: TextStyle(
                   color: isFacingQibla
                       ? ColorsManager.primaryGoldLight
@@ -202,13 +223,15 @@ class _QiblaScreenState extends State<QiblaScreen> {
                       color: Colors.amber.withValues(alpha: 0.3),
                     ),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.sensors_off, color: Colors.amber, size: 16),
                       SizedBox(width: 8),
                       Text(
-                        'Compass sensor not detected. Showing calculated angle.',
+                        context.tr(
+                          'Compass sensor not detected. Showing calculated angle.',
+                        ),
                         style: TextStyle(color: Colors.amber, fontSize: 11),
                       ),
                     ],
@@ -238,8 +261,8 @@ class _QiblaScreenState extends State<QiblaScreen> {
                       ),
                       child: Column(
                         children: [
-                          const Text(
-                            'Qibla Bearing',
+                          Text(
+                            context.tr('Qibla Bearing'),
                             style: TextStyle(
                               color: ColorsManager.textMuted,
                               fontSize: 12,
@@ -247,7 +270,7 @@ class _QiblaScreenState extends State<QiblaScreen> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            '${_qiblaData.bearing.toStringAsFixed(1)}° ${_qiblaData.directionText}',
+                            '${UiHelpers.localizeDigits(_qiblaData.bearing.toStringAsFixed(1), arabic: Localizations.localeOf(context).languageCode == 'ar')}° ${context.tr(_qiblaData.directionText)}',
                             style: const TextStyle(
                               color: ColorsManager.primaryGold,
                               fontSize: 18,
@@ -276,8 +299,8 @@ class _QiblaScreenState extends State<QiblaScreen> {
                       ),
                       child: Column(
                         children: [
-                          const Text(
-                            'Distance to Kaaba',
+                          Text(
+                            context.tr('Distance to Kaaba'),
                             style: TextStyle(
                               color: ColorsManager.textMuted,
                               fontSize: 12,
@@ -285,7 +308,7 @@ class _QiblaScreenState extends State<QiblaScreen> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            '${_qiblaData.distanceKm.toStringAsFixed(0)} km',
+                            '${UiHelpers.localizeDigits(_qiblaData.distanceKm.toStringAsFixed(0), arabic: Localizations.localeOf(context).languageCode == 'ar')} ${context.tr('km')}',
                             style: const TextStyle(
                               color: ColorsManager.primaryGold,
                               fontSize: 18,
@@ -315,14 +338,14 @@ class _QiblaScreenState extends State<QiblaScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Heading: ${currentHeading.toStringAsFixed(1)}°',
+                      '${context.tr('Heading:')} ${UiHelpers.localizeDigits(currentHeading.toStringAsFixed(1), arabic: Localizations.localeOf(context).languageCode == 'ar')}°',
                       style: const TextStyle(
                         color: ColorsManager.textMuted,
                         fontSize: 11,
                       ),
                     ),
-                    const Text(
-                      'Kaaba: 21.42° N, 39.83° E',
+                    Text(
+                      context.tr('Kaaba: 21.42° N, 39.83° E'),
                       style: TextStyle(
                         color: ColorsManager.primaryGoldDark,
                         fontSize: 11,

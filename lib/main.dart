@@ -1,7 +1,9 @@
 import 'package:azan/utils/helpers/componenets.dart';
+import 'package:azan/utils/helpers/app_language.dart';
 import 'package:azan/utils/helpers/hive_manager.dart';
 import 'package:azan/utils/routing/routing_config.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
@@ -20,9 +22,7 @@ void callbackDispatcher() {
       const InitializationSettings initSettings = InitializationSettings(
         android: androidSettings,
       );
-      await flutterLocalNotificationsPlugin.initialize(
-        settings: initSettings,
-      );
+      await flutterLocalNotificationsPlugin.initialize(settings: initSettings);
 
       await HiveManager.init();
 
@@ -53,6 +53,7 @@ void main() async {
 
   // Initialize Hive and its adapters/boxes
   await HiveManager.init();
+  AppLanguage.loadSavedLanguage();
 
   // Initialize notifications
   const AndroidInitializationSettings androidSettings =
@@ -64,7 +65,9 @@ void main() async {
     settings: initializationSettings,
   );
   final androidNotifications = flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >();
   await androidNotifications?.requestNotificationsPermission();
   await androidNotifications?.requestExactAlarmsPermission();
 
@@ -98,17 +101,27 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'Azan',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF191A19),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFCFB68E),
-          surface: Color(0xFF282826),
+    return ValueListenableBuilder<Locale>(
+      valueListenable: AppLanguage.locale,
+      builder: (context, locale, _) => MaterialApp.router(
+        title: 'Azan',
+        debugShowCheckedModeBanner: false,
+        locale: locale,
+        supportedLocales: const [Locale('en'), Locale('ar')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        theme: ThemeData.dark().copyWith(
+          scaffoldBackgroundColor: const Color(0xFF191A19),
+          colorScheme: const ColorScheme.dark(
+            primary: Color(0xFFCFB68E),
+            surface: Color(0xFF282826),
+          ),
         ),
+        routerConfig: GoRouterConfig.routes,
       ),
-      routerConfig: GoRouterConfig.routes,
     );
   }
 }

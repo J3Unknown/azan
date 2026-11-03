@@ -1,6 +1,7 @@
 import 'package:azan/layouts/bloc/home_layout_cubit.dart';
 import 'package:azan/layouts/bloc/home_layout_states.dart';
 import 'package:azan/utils/helpers/colors_manager.dart';
+import 'package:azan/utils/helpers/app_language.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -18,7 +19,7 @@ class HomeLayout extends StatelessWidget {
           backgroundColor: const Color(0xFF191A19),
           body: IndexedStack(
             index: cubit.currentIndex,
-            children: cubit.screens,
+            children: cubit.screens(qiblaActive: cubit.currentIndex == 1),
           ),
           bottomNavigationBar: _buildBottomNav(context, cubit),
         );
@@ -32,7 +33,7 @@ class HomeLayout extends StatelessWidget {
       {'icon': FontAwesomeIcons.compass, 'label': 'Qibla'},
       {'icon': FontAwesomeIcons.bookOpen, 'label': 'Quran'},
       {'icon': FontAwesomeIcons.handsPraying, 'label': 'Supplications'},
-      {'icon': FontAwesomeIcons.gear, 'label': 'Settings'},
+      {'icon': FontAwesomeIcons.bars, 'label': 'Menu'},
     ];
 
     return Container(
@@ -61,7 +62,10 @@ class HomeLayout extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? ColorsManager.primaryGold.withValues(alpha: 0.18)
@@ -70,7 +74,9 @@ class HomeLayout extends StatelessWidget {
                       boxShadow: isSelected
                           ? [
                               BoxShadow(
-                                color: ColorsManager.primaryGold.withValues(alpha: 0.25),
+                                color: ColorsManager.primaryGold.withValues(
+                                  alpha: 0.25,
+                                ),
                                 blurRadius: 10,
                                 spreadRadius: 1,
                               ),
@@ -87,13 +93,15 @@ class HomeLayout extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    item['label'] as String,
+                    context.tr(item['label'] as String),
                     style: TextStyle(
                       color: isSelected
                           ? ColorsManager.primaryGold
                           : ColorsManager.textMuted,
                       fontSize: 10,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
                     ),
                   ),
                 ],

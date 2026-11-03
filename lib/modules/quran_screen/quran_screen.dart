@@ -1,6 +1,7 @@
 import 'package:azan/models/reciter_model.dart';
 import 'package:azan/modules/quran_screen/surah_reader_screen.dart';
 import 'package:azan/utils/helpers/colors_manager.dart';
+import 'package:azan/utils/helpers/app_language.dart';
 import 'package:azan/utils/helpers/hive_manager.dart';
 import 'package:azan/utils/helpers/quran_data.dart';
 import 'package:azan/utils/helpers/ui_helpers.dart';
@@ -26,7 +27,10 @@ class _QuranScreenState extends State<QuranScreen> {
     final cachedCity = HiveManager.getMeta('city');
     if (cachedCity != null) _city = cachedCity.toString();
 
-    final reciterId = HiveManager.getMeta('selected_reciter_id', defaultValue: 1);
+    final reciterId = HiveManager.getMeta(
+      'selected_reciter_id',
+      defaultValue: 1,
+    );
     _selectedReciter = availableReciters.firstWhere(
       (r) => r.id == reciterId,
       orElse: () => availableReciters.first,
@@ -42,31 +46,35 @@ class _QuranScreenState extends State<QuranScreen> {
   }
 
   void _onSearchChanged() {
-    final query = _searchController.text.trim().toLowerCase();
+    final query = _normalizeSearch(_searchController.text);
     setState(() {
       if (query.isEmpty) {
         _filteredSurahs = quranSurahsAscending;
       } else {
         _filteredSurahs = quranSurahsAscending.where((s) {
-          return s.name.toLowerCase().contains(query) ||
-              s.arabicName.contains(query) ||
+          return _normalizeSearch(s.name).contains(query) ||
+              _normalizeSearch(s.arabicName).contains(query) ||
               s.traditionalOrder.toString() == query;
         }).toList();
       }
     });
   }
 
+  String _normalizeSearch(String value) => value
+      .toLowerCase()
+      .replaceAll(RegExp(r'[\u064B-\u065F\u0670\u06D6-\u06ED\u0640]'), '')
+      .replaceAll(RegExp(r'[أإآٱ]'), 'ا')
+      .replaceAll('ى', 'ي');
+
   void _openSurahReader(SurahItem surah) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (ctx) => SurahReaderScreen(
-          surah: surah,
-          initialReciter: _selectedReciter,
-        ),
+        builder: (ctx) =>
+            SurahReaderScreen(surah: surah, initialReciter: _selectedReciter),
       ),
     );
-    
+
     if (mounted) setState(() {});
   }
 
@@ -93,8 +101,8 @@ class _QuranScreenState extends State<QuranScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Select Reciter',
+            Text(
+              context.tr('Select Reciter'),
               style: TextStyle(
                 color: ColorsManager.primaryGold,
                 fontSize: 20,
@@ -103,8 +111,10 @@ class _QuranScreenState extends State<QuranScreen> {
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Choose your preferred audio reciter for Surahs & Verses',
+            Text(
+              context.tr(
+                'Choose your preferred audio reciter for Surahs & Verses',
+              ),
               style: TextStyle(color: ColorsManager.textMuted, fontSize: 12),
             ),
             const SizedBox(height: 16),
@@ -120,39 +130,63 @@ class _QuranScreenState extends State<QuranScreen> {
                   final isSelected = reciter.id == _selectedReciter.id;
 
                   return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 4,
+                      horizontal: 8,
+                    ),
                     onTap: () async {
                       setState(() {
                         _selectedReciter = reciter;
                       });
-                      await HiveManager.addUpdateMetaData('selected_reciter_id', reciter.id);
+                      await HiveManager.addUpdateMetaData(
+                        'selected_reciter_id',
+                        reciter.id,
+                      );
                       if (ctx.mounted) Navigator.pop(ctx);
                     },
                     leading: Icon(
-                      isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
-                      color: isSelected ? ColorsManager.primaryGold : ColorsManager.textMuted,
+                      isSelected
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      color: isSelected
+                          ? ColorsManager.primaryGold
+                          : ColorsManager.textMuted,
                       size: 20,
                     ),
                     title: Text(
-                      reciter.name,
+                      Localizations.localeOf(context).languageCode == 'ar'
+                          ? reciter.nameArabic
+                          : reciter.name,
                       style: TextStyle(
-                        color: isSelected ? ColorsManager.primaryGoldLight : ColorsManager.textPrimary,
+                        color: isSelected
+                            ? ColorsManager.primaryGoldLight
+                            : ColorsManager.textPrimary,
                         fontSize: 15,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                       ),
                     ),
                     subtitle: Text(
-                      reciter.style,
-                      style: const TextStyle(color: ColorsManager.textMuted, fontSize: 11),
-                    ),
-                    trailing: Text(
-                      reciter.nameArabic,
-                      style: TextStyle(
-                        color: isSelected ? ColorsManager.primaryGold : ColorsManager.textSecondary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
+                      context.tr(reciter.style),
+                      style: const TextStyle(
+                        color: ColorsManager.textMuted,
+                        fontSize: 11,
                       ),
                     ),
+                    trailing:
+                        Localizations.localeOf(context).languageCode == 'ar'
+                        ? null
+                        : Text(
+                            reciter.nameArabic,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? ColorsManager.primaryGold
+                                  : ColorsManager.textSecondary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                   );
                 },
               ),
@@ -196,7 +230,11 @@ class _QuranScreenState extends State<QuranScreen> {
                     ],
                   ),
                   Text(
-                    UiHelpers.formatDate(_currentDate),
+                    UiHelpers.formatDate(
+                      _currentDate,
+                      arabic:
+                          Localizations.localeOf(context).languageCode == 'ar',
+                    ),
                     style: const TextStyle(
                       color: ColorsManager.textSecondary,
                       fontSize: 14,
@@ -211,8 +249,8 @@ class _QuranScreenState extends State<QuranScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Holy Quran',
+                  Text(
+                    context.tr('Holy Quran'),
                     style: TextStyle(
                       color: ColorsManager.textPrimary,
                       fontSize: 24,
@@ -222,7 +260,7 @@ class _QuranScreenState extends State<QuranScreen> {
                     ),
                   ),
                   Text(
-                    '114 Surahs',
+                    context.tr('114 Surahs'),
                     style: TextStyle(
                       color: ColorsManager.primaryGold.withValues(alpha: 0.8),
                       fontSize: 13,
@@ -237,9 +275,9 @@ class _QuranScreenState extends State<QuranScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Traditional Order (Tap to Read)',
+                      context.tr('Traditional Order (Tap to Read)'),
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: ColorsManager.textMuted,
@@ -251,18 +289,27 @@ class _QuranScreenState extends State<QuranScreen> {
                   GestureDetector(
                     onTap: _showReciterSelector,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF282826),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: ColorsManager.primaryGold.withValues(alpha: 0.35),
+                          color: ColorsManager.primaryGold.withValues(
+                            alpha: 0.35,
+                          ),
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.mic, color: ColorsManager.primaryGold, size: 14),
+                          const Icon(
+                            Icons.mic,
+                            color: ColorsManager.primaryGold,
+                            size: 14,
+                          ),
                           const SizedBox(width: 5),
                           ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 120),
@@ -276,7 +323,11 @@ class _QuranScreenState extends State<QuranScreen> {
                               ),
                             ),
                           ),
-                          const Icon(Icons.arrow_drop_down, color: ColorsManager.primaryGold, size: 16),
+                          const Icon(
+                            Icons.arrow_drop_down,
+                            color: ColorsManager.primaryGold,
+                            size: 16,
+                          ),
                         ],
                       ),
                     ),
@@ -296,14 +347,28 @@ class _QuranScreenState extends State<QuranScreen> {
                 ),
                 child: TextField(
                   controller: _searchController,
-                  style: const TextStyle(color: ColorsManager.textPrimary, fontSize: 14),
+                  style: const TextStyle(
+                    color: ColorsManager.textPrimary,
+                    fontSize: 14,
+                  ),
                   decoration: InputDecoration(
-                    hintText: 'Search Surah by name or number...',
-                    hintStyle: const TextStyle(color: ColorsManager.textMuted, fontSize: 13),
-                    prefixIcon: const Icon(Icons.search, color: ColorsManager.primaryGold, size: 20),
+                    hintText: context.tr('Search Surah by name or number...'),
+                    hintStyle: const TextStyle(
+                      color: ColorsManager.textMuted,
+                      fontSize: 13,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: ColorsManager.primaryGold,
+                      size: 20,
+                    ),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear, color: ColorsManager.textMuted, size: 18),
+                            icon: const Icon(
+                              Icons.clear,
+                              color: ColorsManager.textMuted,
+                              size: 18,
+                            ),
                             onPressed: () => _searchController.clear(),
                           )
                         : null,
@@ -324,10 +389,15 @@ class _QuranScreenState extends State<QuranScreen> {
                   ),
                   itemBuilder: (context, index) {
                     final surah = _filteredSurahs[index];
-                    final isCached = HiveManager.isSurahCached(surah.traditionalOrder);
+                    final isCached = HiveManager.isSurahCached(
+                      surah.traditionalOrder,
+                    );
 
                     return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 4,
+                        horizontal: 2,
+                      ),
                       onTap: () => _openSurahReader(surah),
                       leading: Container(
                         width: 40,
@@ -336,7 +406,9 @@ class _QuranScreenState extends State<QuranScreen> {
                           shape: BoxShape.circle,
                           color: const Color(0xFF282826),
                           border: Border.all(
-                            color: ColorsManager.primaryGold.withValues(alpha: 0.35),
+                            color: ColorsManager.primaryGold.withValues(
+                              alpha: 0.35,
+                            ),
                           ),
                         ),
                         alignment: Alignment.center,
@@ -353,7 +425,10 @@ class _QuranScreenState extends State<QuranScreen> {
                         children: [
                           Flexible(
                             child: Text(
-                              surah.name,
+                              Localizations.localeOf(context).languageCode ==
+                                      'ar'
+                                  ? surah.arabicName
+                                  : surah.name,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: ColorsManager.textPrimary,
@@ -378,7 +453,7 @@ class _QuranScreenState extends State<QuranScreen> {
                           children: [
                             Flexible(
                               child: Text(
-                                '${surah.numberOfVerses} Verses • ${surah.location}',
+                                '${surah.numberOfVerses} ${context.tr('Verses')} • ${context.tr(surah.location)}',
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: ColorsManager.textMuted,
@@ -388,9 +463,14 @@ class _QuranScreenState extends State<QuranScreen> {
                             ),
                             const SizedBox(width: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1,
+                              ),
                               decoration: BoxDecoration(
-                                color: ColorsManager.primaryGoldDark.withValues(alpha: 0.25),
+                                color: ColorsManager.primaryGoldDark.withValues(
+                                  alpha: 0.25,
+                                ),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -408,14 +488,16 @@ class _QuranScreenState extends State<QuranScreen> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            surah.arabicName,
-                            style: const TextStyle(
-                              color: ColorsManager.primaryGoldLight,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
+                          if (Localizations.localeOf(context).languageCode !=
+                              'ar')
+                            Text(
+                              surah.arabicName,
+                              style: const TextStyle(
+                                color: ColorsManager.primaryGoldLight,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
                           const SizedBox(width: 6),
                           const Icon(
                             Icons.arrow_forward_ios,

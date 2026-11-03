@@ -1,5 +1,6 @@
 import 'package:azan/models/reminder_model.dart';
 import 'package:azan/utils/helpers/colors_manager.dart';
+import 'package:azan/utils/helpers/app_language.dart';
 import 'package:azan/utils/helpers/componenets.dart';
 import 'package:azan/utils/helpers/hive_manager.dart';
 import 'package:azan/utils/helpers/ui_helpers.dart';
@@ -32,34 +33,64 @@ class _RemindersScreenState extends State<RemindersScreen> {
     final reminders = HiveManager.getReminders();
     final today = DateTime.now();
     for (final reminder in reminders) {
-      if (reminder.isCompleted && _isRepeatDueToday(reminder, today)) {
-        reminder.isCompleted = false;
+      if (!reminder.isCompleted ||
+          reminder.repeatTimes == 0 ||
+          reminder.repeatInterval == 'none') {
+        continue;
+      }
+      reminder.completedAt ??= today;
+      if (_hasRepeatOccurrenceSinceCompletion(reminder, today)) {
+        reminder
+          ..isCompleted = false
+          ..completedAt = null;
+        HiveManager.updateReminder(reminder);
+      } else if (reminder.completedAt == today) {
         HiveManager.updateReminder(reminder);
       }
     }
     setState(() => _reminders = reminders);
   }
 
-  bool _isRepeatDueToday(ReminderModel reminder, DateTime now) {
-    if (reminder.repeatTimes == 0 || reminder.repeatInterval == 'none') return false;
+  bool _hasRepeatOccurrenceSinceCompletion(
+    ReminderModel reminder,
+    DateTime now,
+  ) {
+    final completed = reminder.completedAt!;
     final anchor = DateTime(
       reminder.reminderDate.year,
       reminder.reminderDate.month,
       reminder.reminderDate.day,
     );
     final today = DateTime(now.year, now.month, now.day);
+    final completedDay = DateTime(
+      completed.year,
+      completed.month,
+      completed.day,
+    );
     if (today.isBefore(anchor)) return false;
+    var occurrence = anchor;
     switch (reminder.repeatInterval) {
       case 'weekly':
-        return today.difference(anchor).inDays % 7 == 0;
+        while (occurrence.add(const Duration(days: 7)).isBefore(today) ||
+            occurrence.add(const Duration(days: 7)).isAtSameMomentAs(today)) {
+          occurrence = occurrence.add(const Duration(days: 7));
+        }
       case 'monthly':
-        return today.day == anchor.day ||
-            (today.month != anchor.month &&
-                today.day == DateTime(today.year, today.month + 1, 0).day &&
-                anchor.day > today.day);
+        while (true) {
+          final nextMonth = DateTime(occurrence.year, occurrence.month + 1, 1);
+          final lastDay = DateTime(nextMonth.year, nextMonth.month + 1, 0).day;
+          final nextOccurrence = DateTime(
+            nextMonth.year,
+            nextMonth.month,
+            anchor.day.clamp(1, lastDay).toInt(),
+          );
+          if (nextOccurrence.isAfter(today)) break;
+          occurrence = nextOccurrence;
+        }
       default:
-        return true;
+        occurrence = today;
     }
+    return !occurrence.isAfter(today) && occurrence.isAfter(completedDay);
   }
 
   Future<void> _togglePin(ReminderModel reminder) async {
@@ -75,6 +106,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
   Future<void> _toggleCompleted(ReminderModel reminder, bool? checked) async {
     reminder.isCompleted = checked ?? false;
+    reminder.completedAt = reminder.isCompleted ? DateTime.now() : null;
     await HiveManager.updateReminder(reminder);
     if (reminder.isCompleted && reminder.repeatTimes != 0) {
       await scheduleReminderNotification(reminder);
@@ -158,7 +190,11 @@ class _RemindersScreenState extends State<RemindersScreen> {
                     ],
                   ),
                   Text(
-                    UiHelpers.formatDate(_currentDate),
+                    UiHelpers.formatDate(
+                      _currentDate,
+                      arabic:
+                          Localizations.localeOf(context).languageCode == 'ar',
+                    ),
                     style: const TextStyle(
                       color: ColorsManager.textSecondary,
                       fontSize: 14,
@@ -173,8 +209,8 @@ class _RemindersScreenState extends State<RemindersScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Daily Reminders',
+                  Text(
+                    context.tr('Daily Reminders'),
                     style: TextStyle(
                       color: ColorsManager.textPrimary,
                       fontSize: 24,
@@ -209,8 +245,8 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
               // Pinned Section
               if (pinnedReminders.isNotEmpty) ...[
-                const Text(
-                  'Pinned',
+                Text(
+                  context.tr('Pinned'),
                   style: TextStyle(
                     color: ColorsManager.textSecondary,
                     fontSize: 16,
@@ -223,8 +259,8 @@ class _RemindersScreenState extends State<RemindersScreen> {
               ],
 
               // Upcoming Section
-              const Text(
-                'Upcoming',
+              Text(
+                context.tr('Upcoming'),
                 style: TextStyle(
                   color: ColorsManager.textSecondary,
                   fontSize: 16,
@@ -244,8 +280,8 @@ class _RemindersScreenState extends State<RemindersScreen> {
                           size: 40,
                         ),
                         const SizedBox(height: 12),
-                        const Text(
-                          'No reminders added yet.',
+                        Text(
+                          context.tr('No reminders added yet.'),
                           style: TextStyle(color: ColorsManager.textMuted),
                         ),
                       ],
@@ -264,8 +300,8 @@ class _RemindersScreenState extends State<RemindersScreen> {
         backgroundColor: ColorsManager.primaryGold,
         foregroundColor: const Color(0xFF191A19),
         icon: const Icon(Icons.add),
-        label: const Text(
-          'Add Reminder',
+        label: Text(
+          context.tr('Add Reminder'),
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
         onPressed: _openAddReminderSheet,
@@ -315,7 +351,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                reminder.category,
+                context.tr(reminder.category),
                 style: const TextStyle(
                   color: ColorsManager.textSecondary,
                   fontSize: 13,
@@ -397,7 +433,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
               reminder.repeatTimes != 0 &&
               reminder.repeatInterval != 'none')
             Text(
-              'Next: ${UiHelpers.formatDate(_nextReminderOccurrence(reminder))} · ${UiHelpers.formatTime12(reminder.reminderTime)}',
+              '${context.tr('Next:')} ${UiHelpers.formatDate(_nextReminderOccurrence(reminder), arabic: Localizations.localeOf(context).languageCode == 'ar')} · ${UiHelpers.formatTime12(reminder.reminderTime, arabic: Localizations.localeOf(context).languageCode == 'ar')}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -412,7 +448,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
             children: [
               Expanded(
                 child: Text(
-                  '${UiHelpers.formatDate(reminder.reminderDate)} · ${UiHelpers.formatTime12(reminder.reminderTime)}',
+                  '${UiHelpers.formatDate(reminder.reminderDate, arabic: Localizations.localeOf(context).languageCode == 'ar')} · ${UiHelpers.formatTime12(reminder.reminderTime, arabic: Localizations.localeOf(context).languageCode == 'ar')}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -474,19 +510,21 @@ class _RemindersScreenState extends State<RemindersScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF2C2C2A),
-        title: const Text(
-          'Delete Reminder',
+        title: Text(
+          ctx.tr('Delete Reminder'),
           style: TextStyle(color: ColorsManager.textPrimary),
         ),
         content: Text(
-          'Delete "${reminder.title}"?',
+          Localizations.localeOf(ctx).languageCode == 'ar'
+              ? 'حذف التذكير «${reminder.title}»؟'
+              : 'Delete "${reminder.title}"?',
           style: const TextStyle(color: ColorsManager.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text(
-              'Cancel',
+            child: Text(
+              ctx.tr('Cancel'),
               style: TextStyle(color: ColorsManager.textMuted),
             ),
           ),
@@ -496,7 +534,10 @@ class _RemindersScreenState extends State<RemindersScreen> {
               Navigator.pop(ctx);
               _deleteReminder(reminder);
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+            child: Text(
+              ctx.tr('Delete'),
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -607,7 +648,7 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a reminder title')),
+        SnackBar(content: Text(context.tr('Please enter a reminder title'))),
       );
       return;
     }
@@ -632,6 +673,7 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
       isPinned: existing?.isPinned ?? false,
       isActive: existing?.isActive ?? true,
       isCompleted: existing?.isCompleted ?? false,
+      completedAt: existing?.completedAt,
     );
 
     if (existing == null) {
@@ -684,9 +726,11 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  widget.reminder == null
-                      ? 'Add New Reminder'
-                      : 'Edit Reminder',
+                  context.tr(
+                    widget.reminder == null
+                        ? 'Add New Reminder'
+                        : 'Edit Reminder',
+                  ),
                   style: TextStyle(
                     color: ColorsManager.primaryGold,
                     fontSize: 20,
@@ -713,9 +757,9 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
               child: TextField(
                 controller: _titleController,
                 style: const TextStyle(color: ColorsManager.textPrimary),
-                decoration: const InputDecoration(
-                  hintText: 'Enter reminder title...',
-                  hintStyle: TextStyle(color: ColorsManager.textMuted),
+                decoration: InputDecoration(
+                  hintText: context.tr('Enter reminder title...'),
+                  hintStyle: const TextStyle(color: ColorsManager.textMuted),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(
                     horizontal: 16,
@@ -746,7 +790,7 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
                     return DropdownMenuItem(
                       value: cat,
                       child: Text(
-                        cat,
+                        context.tr(cat),
                         style: const TextStyle(
                           color: ColorsManager.textPrimary,
                         ),
@@ -791,7 +835,7 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                              '${UiHelpers.formatDigits(_selectedDate.day, arabic: Localizations.localeOf(context).languageCode == 'ar')}/${UiHelpers.formatDigits(_selectedDate.month, arabic: Localizations.localeOf(context).languageCode == 'ar')}/${UiHelpers.formatDigits(_selectedDate.year, arabic: Localizations.localeOf(context).languageCode == 'ar')}',
                               style: const TextStyle(
                                 color: ColorsManager.textPrimary,
                                 fontSize: 13,
@@ -847,11 +891,11 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Column(
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Repeat Options',
+                      context.tr('Repeat Options'),
                       style: TextStyle(
                         color: ColorsManager.textPrimary,
                         fontSize: 15,
@@ -860,7 +904,7 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Repeat (e.g. Daily, Weekly, Forever)',
+                      context.tr('Repeat (e.g. Daily, Weekly, Forever)'),
                       style: TextStyle(
                         color: ColorsManager.textMuted,
                         fontSize: 12,
@@ -901,12 +945,12 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
                           value: _repeatInterval,
                           isExpanded: true,
                           dropdownColor: const Color(0xFF242422),
-                          items: const [
+                          items: [
                             DropdownMenuItem(
                               value: 'daily',
                               child: Text(
-                                'Daily',
-                                style: TextStyle(
+                                context.tr('Daily'),
+                                style: const TextStyle(
                                   color: ColorsManager.textPrimary,
                                 ),
                               ),
@@ -914,8 +958,8 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
                             DropdownMenuItem(
                               value: 'weekly',
                               child: Text(
-                                'Weekly',
-                                style: TextStyle(
+                                context.tr('Weekly'),
+                                style: const TextStyle(
                                   color: ColorsManager.textPrimary,
                                 ),
                               ),
@@ -923,8 +967,8 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
                             DropdownMenuItem(
                               value: 'monthly',
                               child: Text(
-                                'Monthly',
-                                style: TextStyle(
+                                context.tr('Monthly'),
+                                style: const TextStyle(
                                   color: ColorsManager.textPrimary,
                                 ),
                               ),
@@ -932,8 +976,8 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
                             DropdownMenuItem(
                               value: 'custom',
                               child: Text(
-                                'Custom',
-                                style: TextStyle(
+                                context.tr('Custom'),
+                                style: const TextStyle(
                                   color: ColorsManager.textPrimary,
                                 ),
                               ),
@@ -959,12 +1003,12 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
                           value: _repeatTimes,
                           isExpanded: true,
                           dropdownColor: const Color(0xFF242422),
-                          items: const [
+                          items: [
                             DropdownMenuItem(
                               value: -1,
                               child: Text(
-                                'Forever',
-                                style: TextStyle(
+                                context.tr('Forever'),
+                                style: const TextStyle(
                                   color: ColorsManager.primaryGold,
                                 ),
                               ),
@@ -972,8 +1016,8 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
                             DropdownMenuItem(
                               value: 7,
                               child: Text(
-                                '7 Times',
-                                style: TextStyle(
+                                context.tr('7 Times'),
+                                style: const TextStyle(
                                   color: ColorsManager.textPrimary,
                                 ),
                               ),
@@ -981,8 +1025,8 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
                             DropdownMenuItem(
                               value: 30,
                               child: Text(
-                                '30 Times',
-                                style: TextStyle(
+                                context.tr('30 Times'),
+                                style: const TextStyle(
                                   color: ColorsManager.textPrimary,
                                 ),
                               ),
@@ -990,8 +1034,8 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
                             DropdownMenuItem(
                               value: 100,
                               child: Text(
-                                '100 Times',
-                                style: TextStyle(
+                                context.tr('100 Times'),
+                                style: const TextStyle(
                                   color: ColorsManager.textPrimary,
                                 ),
                               ),
@@ -1024,7 +1068,9 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
                 ),
                 onPressed: _submitReminder,
                 child: Text(
-                  widget.reminder == null ? 'Add Reminder' : 'Save Changes',
+                  context.tr(
+                    widget.reminder == null ? 'Add Reminder' : 'Save Changes',
+                  ),
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),

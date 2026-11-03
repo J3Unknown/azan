@@ -1,4 +1,5 @@
 import 'package:azan/models/prayer_model.dart';
+import 'package:azan/utils/helpers/hive_manager.dart';
 import 'package:home_widget/home_widget.dart';
 
 class PrayerHomeWidgetService {
@@ -47,6 +48,10 @@ class PrayerHomeWidgetService {
           })();
 
     final values = <String, Object>{
+      'app_language': HiveManager.getMeta(
+        'language',
+        defaultValue: 'en',
+      ).toString(),
       'next_prayer_name': next.prayer.prayerName,
       'next_prayer_epoch': next.time.millisecondsSinceEpoch,
     };

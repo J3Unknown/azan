@@ -27,13 +27,14 @@ class ReminderModelAdapter extends TypeAdapter<ReminderModel> {
       isPinned: fields[7] == null ? false : fields[7] as bool,
       isActive: fields[8] == null ? true : fields[8] as bool,
       isCompleted: fields[9] == null ? false : fields[9] as bool,
+      completedAt: fields[10] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, ReminderModel obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -53,7 +54,9 @@ class ReminderModelAdapter extends TypeAdapter<ReminderModel> {
       ..writeByte(8)
       ..write(obj.isActive)
       ..writeByte(9)
-      ..write(obj.isCompleted);
+      ..write(obj.isCompleted)
+      ..writeByte(10)
+      ..write(obj.completedAt);
   }
 
   @override

@@ -2,6 +2,8 @@ import 'dart:developer';
 import 'package:azan/models/athkar_model.dart';
 import 'package:azan/models/prayer_model.dart';
 import 'package:azan/models/reminder_model.dart';
+import 'package:azan/utils/helpers/supplication_data.dart';
+import 'package:azan/utils/helpers/reference_supplication_data.dart';
 import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 
 class HiveManager {
@@ -202,6 +204,8 @@ class HiveManager {
           id: 'prayer_athkar_13', arabicText: 'اللَّهُمَّ أَعِنِّي عَلَى ذِكْرِكَ وَشُكْرِكَ وَحُسْنِ عِبَادَتِكَ.', transliteration: 'Allahumma a’inni ala dhikrika wa shukrika wa husni ibadatik.', translation: 'O Allah, help me to remember You, thank You, and worship You well.', totalCount: 1, currentCount: 0, prayerName: 'All prayers',
         ),
       ];
+    defaultList.addAll(additionalSupplications);
+    defaultList.addAll(referenceSupplications);
     for (final item in defaultList) {
       if (!athkarBox.containsKey(item.id)) await athkarBox.put(item.id, item);
     }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:azan/models/prayer_model.dart';
 import 'package:azan/utils/helpers/colors_manager.dart';
+import 'package:azan/utils/helpers/app_language.dart';
 import 'package:azan/utils/helpers/componenets.dart';
 import 'package:azan/utils/helpers/hive_manager.dart';
 import 'package:azan/utils/helpers/ui_helpers.dart';
@@ -167,7 +168,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 // Section Title: "Next Prayer" or "Current Prayer"
                 Text(
-                  mainInfo.isCurrentActive ? 'Current Prayer' : 'Next Prayer',
+                  context.tr(
+                    mainInfo.isCurrentActive ? 'Current Prayer' : 'Next Prayer',
+                  ),
                   style: const TextStyle(
                     color: ColorsManager.textPrimary,
                     fontSize: 22,
@@ -224,7 +227,10 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              UiHelpers.formatDate(_currentTime),
+              UiHelpers.formatDate(
+                _currentTime,
+                arabic: Localizations.localeOf(context).languageCode == 'ar',
+              ),
               style: const TextStyle(
                 color: ColorsManager.textSecondary,
                 fontSize: 14,
@@ -233,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(width: 4),
             IconButton(
-              tooltip: 'Update prayer times',
+              tooltip: context.tr('Update prayer times'),
               visualDensity: VisualDensity.compact,
               icon: _isRefreshingPrayerTimes
                   ? const SizedBox(
@@ -241,11 +247,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.refresh, color: ColorsManager.primaryGold, size: 20),
+                  : const Icon(
+                      Icons.refresh,
+                      color: ColorsManager.primaryGold,
+                      size: 20,
+                    ),
               onPressed: _isRefreshingPrayerTimes ? null : _refreshPrayerTimes,
             ),
             IconButton(
-              tooltip: 'Add prayer times widget',
+              tooltip: context.tr('Add prayer times widget'),
               icon: const Icon(
                 Icons.widgets_outlined,
                 color: ColorsManager.primaryGold,
@@ -258,7 +268,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 } catch (error) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Could not add widget: $error')),
+                      SnackBar(
+                        content: Text(
+                          '${context.tr('Could not add widget:')} $error',
+                        ),
+                      ),
                     );
                   }
                 }
@@ -276,7 +290,8 @@ class _HomeScreenState extends State<HomeScreen> {
     Duration duration,
   ) {
     // Split time into digits and period (e.g., "04:52" and "AM")
-    final timeStr = UiHelpers.formatTime12(prayer.prayerTime);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final timeStr = UiHelpers.formatTime12(prayer.prayerTime, arabic: isArabic);
     final parts = timeStr.split(' ');
     final timeDigits = parts.first;
     final period = parts.length > 1 ? parts[1] : '';
@@ -309,9 +324,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Stack(
         children: [
-          // Crescent Moon and Star Icon on the right
-          Positioned(
-            right: 0,
+          // Keep the decorative icon clear of the prayer name in both directions.
+          PositionedDirectional(
+            end: 0,
             top: 4,
             child: FaIcon(
               FontAwesomeIcons.solidMoon,
@@ -323,16 +338,25 @@ class _HomeScreenState extends State<HomeScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Prayer Name in Uppercase
-              Text(
-                prayer.prayerName.toUpperCase(),
-                style: const TextStyle(
-                  color: ColorsManager.textPrimary,
-                  fontSize: 24,
-                  fontFamily: 'serif',
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 2.5,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.tr(prayer.prayerName),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: TextStyle(
+                        color: ColorsManager.textPrimary,
+                        fontSize: 24,
+                        fontFamily: 'serif',
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: isArabic ? 0 : 2.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 64),
+                ],
               ),
               const SizedBox(height: 10),
 
@@ -366,8 +390,8 @@ class _HomeScreenState extends State<HomeScreen> {
               // Countdown / Status pill
               Text(
                 isCurrentActive
-                    ? '${UiHelpers.formatDuration(duration)} left in Athan'
-                    : '${UiHelpers.formatDuration(duration)} until ${prayer.prayerName}',
+                    ? '${UiHelpers.formatDuration(duration, arabic: Localizations.localeOf(context).languageCode == 'ar')} ${context.tr('left in Athan')}'
+                    : '${UiHelpers.formatDuration(duration, arabic: Localizations.localeOf(context).languageCode == 'ar')} ${context.tr('until')} ${context.tr(prayer.prayerName)}',
                 style: TextStyle(
                   color: ColorsManager.primaryGold.withValues(alpha: 0.9),
                   fontSize: 14,
@@ -410,7 +434,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 flex: 3,
                 child: Text(
-                  prayer.prayerName,
+                  context.tr(prayer.prayerName),
                   style: const TextStyle(
                     color: ColorsManager.textPrimary,
                     fontSize: 18,
@@ -423,7 +447,11 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 flex: 4,
                 child: Text(
-                  UiHelpers.formatTime12(prayer.prayerTime),
+                  UiHelpers.formatTime12(
+                    prayer.prayerTime,
+                    arabic:
+                        Localizations.localeOf(context).languageCode == 'ar',
+                  ),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: prayer.isEnabled

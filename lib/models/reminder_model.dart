@@ -34,6 +34,9 @@ class ReminderModel extends HiveObject {
   @HiveField(9)
   bool isCompleted;
 
+  @HiveField(10)
+  DateTime? completedAt;
+
   ReminderModel({
     required this.id,
     required this.title,
@@ -45,5 +48,6 @@ class ReminderModel extends HiveObject {
     this.isPinned = false,
     this.isActive = true,
     this.isCompleted = false,
+    this.completedAt,
   });
 }

@@ -57,8 +57,15 @@ class PrayerTimesWidgetProvider : HomeWidgetProvider() {
             appWidgetIds.forEach { appWidgetId ->
                 runCatching {
                     val views = RemoteViews(context.packageName, R.layout.prayer_times_widget)
-                    views.setTextViewText(R.id.next_prayer, "Prayer times unavailable")
-                    views.setTextViewText(R.id.countdown, "Open Azan to refresh")
+                    val arabic = widgetData.getString("app_language", "en") == "ar"
+                    views.setTextViewText(
+                        R.id.next_prayer,
+                        if (arabic) "مواقيت الصلاة غير متاحة" else "Prayer times unavailable",
+                    )
+                    views.setTextViewText(
+                        R.id.countdown,
+                        if (arabic) "افتح أذان للتحديث" else "Open Azan to refresh",
+                    )
                     appWidgetManager.updateAppWidget(appWidgetId, views)
                 }.onFailure { fallbackError ->
                     Log.e(TAG, "Unable to show prayer times widget fallback", fallbackError)
@@ -74,6 +81,8 @@ class PrayerTimesWidgetProvider : HomeWidgetProvider() {
         widgetData: SharedPreferences,
     ) {
         val now = System.currentTimeMillis()
+        val arabic = widgetData.getString("app_language", "en") == "ar"
+        val displayLocale = if (arabic) Locale("ar") else Locale.getDefault()
         val today = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
@@ -138,13 +147,13 @@ class PrayerTimesWidgetProvider : HomeWidgetProvider() {
                 R.id.prayer_4_container,
                 R.id.prayer_5_container,
             )
-            val timeFormatter = SimpleDateFormat("HH:mm", Locale.getDefault())
+            val timeFormatter = SimpleDateFormat("HH:mm", displayLocale)
             prayers.forEachIndexed { index, prayer ->
                 views.setViewVisibility(
                     prayerContainerIds[index],
                     if (prayer.name == nextPrayer?.name) View.GONE else View.VISIBLE,
                 )
-                views.setTextViewText(prayerNameIds[index], prayer.name)
+                views.setTextViewText(prayerNameIds[index], displayName(prayer.name, arabic))
                 val prayerTime = if (prayer.hour in 0..23 && prayer.minute in 0..59) {
                     Calendar.getInstance().apply {
                         set(Calendar.HOUR_OF_DAY, prayer.hour)
@@ -165,11 +174,14 @@ class PrayerTimesWidgetProvider : HomeWidgetProvider() {
                     timeInMillis = nextPrayerTime
                 }
                 val remaining = (nextPrayerTime - now).coerceAtLeast(0L)
-                val nextPrayerName = nextPrayer.name.uppercase(Locale.getDefault())
+                val nextPrayerName = displayName(nextPrayer.name, arabic).uppercase(displayLocale)
                 views.setTextViewText(R.id.next_prayer, nextPrayerName)
-                views.setTextViewText(R.id.next_prayer_time, SimpleDateFormat("hh:mm", Locale.getDefault()).format(nextPrayerClock.time))
-                views.setTextViewText(R.id.next_prayer_period, SimpleDateFormat("a", Locale.getDefault()).format(nextPrayerClock.time))
-                views.setTextViewText(R.id.countdown_until, "until ${nextPrayer.name}")
+                views.setTextViewText(R.id.next_prayer_time, SimpleDateFormat("hh:mm", displayLocale).format(nextPrayerClock.time))
+                views.setTextViewText(R.id.next_prayer_period, SimpleDateFormat("a", displayLocale).format(nextPrayerClock.time))
+                views.setTextViewText(
+                    R.id.countdown_until,
+                    if (arabic) "حتى ${displayName(nextPrayer.name, true)}" else "until ${nextPrayer.name}",
+                )
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && exactAlarmAvailable) {
                     views.setChronometer(
                         R.id.countdown,
@@ -182,17 +194,32 @@ class PrayerTimesWidgetProvider : HomeWidgetProvider() {
                     val seconds = remaining / 1000L
                     views.setTextViewText(
                         R.id.countdown,
-                        String.format(Locale.getDefault(), "%02d:%02d:%02d", seconds / 3600, (seconds / 60) % 60, seconds % 60),
+                        String.format(displayLocale, "%02d:%02d:%02d", seconds / 3600, (seconds / 60) % 60, seconds % 60),
                     )
                 }
             } else {
-                views.setTextViewText(R.id.next_prayer, "NEXT PRAYER")
+                views.setTextViewText(R.id.next_prayer, if (arabic) "الصلاة القادمة" else "NEXT PRAYER")
                 views.setTextViewText(R.id.next_prayer_time, "--:--")
                 views.setTextViewText(R.id.next_prayer_period, "")
                 views.setTextViewText(R.id.countdown_until, "")
-                views.setTextViewText(R.id.countdown, "Open Azan to refresh")
+                views.setTextViewText(
+                    R.id.countdown,
+                    if (arabic) "افتح أذان للتحديث" else "Open Azan to refresh",
+                )
             }
             appWidgetManager.updateAppWidget(appWidgetId, views)
+        }
+    }
+
+    private fun displayName(name: String, arabic: Boolean): String {
+        if (!arabic) return name
+        return when (name) {
+            "Fajr" -> "الفجر"
+            "Dhuhr" -> "الظهر"
+            "Asr" -> "العصر"
+            "Maghrib" -> "المغرب"
+            "Isha" -> "العشاء"
+            else -> name
         }
     }
 

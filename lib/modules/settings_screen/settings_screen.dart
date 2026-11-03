@@ -1,10 +1,13 @@
 import 'package:azan/utils/helpers/colors_manager.dart';
+import 'package:azan/utils/helpers/app_language.dart';
 import 'package:azan/utils/helpers/componenets.dart';
 import 'package:azan/utils/helpers/hive_manager.dart';
 import 'package:flutter/material.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.showBackButton = false});
+
+  final bool showBackButton;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -26,23 +29,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF191A19),
+      appBar: widget.showBackButton
+          ? AppBar(title: Text(context.tr('Settings')))
+          : null,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Settings',
-                style: TextStyle(
-                  color: ColorsManager.textPrimary,
-                  fontSize: 24,
-                  fontFamily: 'serif',
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 0.5,
+              if (!widget.showBackButton) ...[
+                Text(
+                  context.tr('Settings'),
+                  style: TextStyle(
+                    color: ColorsManager.textPrimary,
+                    fontSize: 24,
+                    fontFamily: 'serif',
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF282826),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: DropdownButtonFormField<String>(
+                  initialValue: AppLanguage.locale.value.languageCode,
+                  decoration: InputDecoration(
+                    labelText: context.tr('Language'),
+                    labelStyle: const TextStyle(color: ColorsManager.textMuted),
+                    border: InputBorder.none,
+                  ),
+                  dropdownColor: const Color(0xFF282826),
+                  style: const TextStyle(color: ColorsManager.textPrimary),
+                  items: [
+                    DropdownMenuItem(
+                      value: 'en',
+                      child: Text(context.tr('English')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'ar',
+                      child: Text(context.tr('Arabic')),
+                    ),
+                  ],
+                  onChanged: (code) async {
+                    if (code == null) return;
+                    await AppLanguage.setLanguage(code);
+                    if (mounted) setState(() {});
+                  },
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
               // Location Tile
               Container(
@@ -57,15 +103,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Location', style: TextStyle(color: ColorsManager.textPrimary, fontSize: 16)),
+                        Text(
+                          context.tr('Location'),
+                          style: TextStyle(
+                            color: ColorsManager.textPrimary,
+                            fontSize: 16,
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        Text(_city, style: const TextStyle(color: ColorsManager.textMuted, fontSize: 13)),
+                        Text(
+                          _city,
+                          style: const TextStyle(
+                            color: ColorsManager.textMuted,
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: ColorsManager.primaryGoldDark,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
                       ),
                       onPressed: () async {
                         final city = await getCity();
@@ -74,7 +135,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           _city = city;
                         });
                       },
-                      child: const Text('Update', style: TextStyle(color: Colors.white, fontSize: 12)),
+                      child: Text(
+                        context.tr('Update'),
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
                     ),
                   ],
                 ),
@@ -93,7 +157,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Play Adhan Audio', style: TextStyle(color: ColorsManager.textPrimary, fontSize: 15)),
+                        Text(
+                          context.tr('Play Adhan Audio'),
+                          style: TextStyle(
+                            color: ColorsManager.textPrimary,
+                            fontSize: 15,
+                          ),
+                        ),
                         Switch(
                           value: _athanSound,
                           activeThumbColor: ColorsManager.primaryGold,
@@ -105,7 +175,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Vibration on Reminder', style: TextStyle(color: ColorsManager.textPrimary, fontSize: 15)),
+                        Text(
+                          context.tr('Vibration on Reminder'),
+                          style: TextStyle(
+                            color: ColorsManager.textPrimary,
+                            fontSize: 15,
+                          ),
+                        ),
                         Switch(
                           value: _vibration,
                           activeThumbColor: ColorsManager.primaryGold,
@@ -126,16 +202,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: const Color(0xFF282826),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Calculation Method', style: TextStyle(color: ColorsManager.textPrimary, fontSize: 15)),
+                    Text(
+                      context.tr('Calculation Method'),
+                      style: TextStyle(
+                        color: ColorsManager.textPrimary,
+                        fontSize: 15,
+                      ),
+                    ),
                     SizedBox(height: 4),
-                    Text('Egyptian General Authority of Survey (Shafi)', style: TextStyle(color: ColorsManager.textMuted, fontSize: 13)),
+                    Text(
+                      context.tr(
+                        'Egyptian General Authority of Survey (Shafi)',
+                      ),
+                      style: TextStyle(
+                        color: ColorsManager.textMuted,
+                        fontSize: 13,
+                      ),
+                    ),
                     SizedBox(height: 12),
-                    Text('Background Recalculation', style: TextStyle(color: ColorsManager.textPrimary, fontSize: 15)),
+                    Text(
+                      context.tr('Background Recalculation'),
+                      style: TextStyle(
+                        color: ColorsManager.textPrimary,
+                        fontSize: 15,
+                      ),
+                    ),
                     SizedBox(height: 4),
-                    Text('WorkManager periodic interval: Every 8 hours', style: TextStyle(color: ColorsManager.textMuted, fontSize: 13)),
+                    Text(
+                      context.tr(
+                        'WorkManager periodic interval: Every 8 hours',
+                      ),
+                      style: TextStyle(
+                        color: ColorsManager.textMuted,
+                        fontSize: 13,
+                      ),
+                    ),
                   ],
                 ),
               ),

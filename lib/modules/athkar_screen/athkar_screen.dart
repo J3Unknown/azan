@@ -1,7 +1,10 @@
 import 'package:azan/models/athkar_model.dart';
 import 'package:azan/utils/helpers/colors_manager.dart';
+import 'package:azan/utils/helpers/app_language.dart';
 import 'package:azan/utils/helpers/componenets.dart';
 import 'package:azan/utils/helpers/hive_manager.dart';
+import 'package:azan/utils/helpers/supplication_data.dart';
+import 'package:azan/utils/helpers/reference_supplication_data.dart';
 import 'package:azan/utils/helpers/ui_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +17,130 @@ class AthkarScreen extends StatefulWidget {
 }
 
 class _AthkarScreenState extends State<AthkarScreen> {
+  List<AthkarModel> _athkar = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadChoices();
+  }
+
+  void _loadChoices() {
+    final allById = {
+      for (final item in [
+        ...additionalSupplications,
+        ...referenceSupplications,
+      ])
+        item.id: item,
+    };
+    for (final item in HiveManager.getAthkar()) {
+      allById[item.id] = item;
+    }
+    setState(() => _athkar = allById.values.toList());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allPrayerItems = _athkar.where((item) {
+      final group = item.prayerName.toLowerCase();
+      return group == 'all prayers' ||
+          group.contains('fajr') ||
+          group.contains('maghrib');
+    }).toList();
+    final groups = <String, List<AthkarModel>>{
+      'All prayers': allPrayerItems,
+      'Morning supplications': _athkar
+          .where((item) => item.prayerName == 'Morning supplications')
+          .toList(),
+      'Evening supplications': _athkar
+          .where((item) => item.prayerName == 'Evening supplications')
+          .toList(),
+      'Tasbeeh': _athkar.where((item) => item.prayerName == 'Tasbeeh').toList(),
+      'Sleep supplications': _athkar
+          .where((item) => item.prayerName == 'Sleep supplications')
+          .toList(),
+      'Wake-up supplications': _athkar
+          .where((item) => item.prayerName == 'Wake-up supplications')
+          .toList(),
+      'Quranic supplications': _athkar
+          .where((item) => item.prayerName == 'Quranic supplications')
+          .toList(),
+      'Prophets’ supplications': _athkar
+          .where((item) => item.prayerName == 'Prophets’ supplications')
+          .toList(),
+    }..removeWhere((_, items) => items.isEmpty);
+    return Scaffold(
+      backgroundColor: const Color(0xFF191A19),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            Text(
+              context.tr('Supplications'),
+              style: const TextStyle(
+                color: ColorsManager.textPrimary,
+                fontSize: 25,
+                fontFamily: 'serif',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              context.tr('Choose a supplication collection to begin.'),
+              style: TextStyle(color: ColorsManager.textMuted),
+            ),
+            const SizedBox(height: 18),
+            for (final entry in groups.entries)
+              Card(
+                color: const Color(0xFF282826),
+                child: ListTile(
+                  title: Text(
+                    context.tr(entry.key),
+                    style: const TextStyle(color: ColorsManager.textPrimary),
+                  ),
+                  subtitle: Text(
+                    '${entry.value.length} ${context.tr('supplications')}',
+                    style: const TextStyle(color: ColorsManager.textMuted),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: ColorsManager.primaryGold,
+                  ),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => SupplicationCounterScreen(
+                        title: entry.key,
+                        supplications: entry.value,
+                        showFajrMaghribNote: entry.key == 'All prayers',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SupplicationCounterScreen extends StatefulWidget {
+  final String title;
+  final List<AthkarModel> supplications;
+  final bool showFajrMaghribNote;
+
+  const SupplicationCounterScreen({
+    super.key,
+    required this.title,
+    required this.supplications,
+    this.showFajrMaghribNote = false,
+  });
+
+  @override
+  State<SupplicationCounterScreen> createState() =>
+      _SupplicationCounterScreenState();
+}
+
+class _SupplicationCounterScreenState extends State<SupplicationCounterScreen> {
   List<AthkarModel> _athkarList = [];
   int _currentIndex = 0;
   String _city = 'Cairo, Egypt';
@@ -34,7 +161,12 @@ class _AthkarScreenState extends State<AthkarScreen> {
       _city = cachedCity.toString();
     }
 
-    final list = HiveManager.getAthkar();
+    final storedById = {
+      for (final item in HiveManager.getAthkar()) item.id: item,
+    };
+    final list = widget.supplications
+        .map((item) => storedById[item.id] ?? item)
+        .toList();
     if (mounted) {
       setState(() {
         _athkarList = list;
@@ -68,18 +200,24 @@ class _AthkarScreenState extends State<AthkarScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF2C2C2A),
-        title: const Text(
-          'Reset Counters',
-          style: TextStyle(color: ColorsManager.textPrimary, fontFamily: 'serif'),
+        title: Text(
+          context.tr('Reset Counters'),
+          style: TextStyle(
+            color: ColorsManager.textPrimary,
+            fontFamily: 'serif',
+          ),
         ),
-        content: const Text(
-          'Do you want to reset all Athkar counters to 0?',
+        content: Text(
+          context.tr('Do you want to reset all Athkar counters to 0?'),
           style: TextStyle(color: ColorsManager.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: ColorsManager.textMuted)),
+            child: Text(
+              context.tr('Cancel'),
+              style: const TextStyle(color: ColorsManager.textMuted),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -90,7 +228,10 @@ class _AthkarScreenState extends State<AthkarScreen> {
               await HiveManager.resetAthkarCounts();
               await _loadAthkar();
             },
-            child: const Text('Reset', style: TextStyle(color: Colors.white)),
+            child: Text(
+              context.tr('Reset'),
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -110,7 +251,10 @@ class _AthkarScreenState extends State<AthkarScreen> {
 
     final currentAthkar = _athkarList[_currentIndex];
     final progressFraction = currentAthkar.totalCount > 0
-        ? (currentAthkar.currentCount / currentAthkar.totalCount).clamp(0.0, 1.0)
+        ? (currentAthkar.currentCount / currentAthkar.totalCount).clamp(
+            0.0,
+            1.0,
+          )
         : 0.0;
 
     return Scaffold(
@@ -127,6 +271,21 @@ class _AthkarScreenState extends State<AthkarScreen> {
                 children: [
                   Row(
                     children: [
+                      SizedBox(
+                        width: 20,
+                        child: IconButton(
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: ColorsManager.primaryGold,
+                            size: 20,
+                          ),
+                          tooltip: context.tr('Back to supplications'),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
                       const Icon(
                         Icons.location_on,
                         color: ColorsManager.primaryGold,
@@ -146,7 +305,12 @@ class _AthkarScreenState extends State<AthkarScreen> {
                   Row(
                     children: [
                       Text(
-                        UiHelpers.formatDate(_currentDate),
+                        UiHelpers.formatDate(
+                          _currentDate,
+                          arabic:
+                              Localizations.localeOf(context).languageCode ==
+                              'ar',
+                        ),
                         style: const TextStyle(
                           color: ColorsManager.textSecondary,
                           fontSize: 14,
@@ -161,7 +325,7 @@ class _AthkarScreenState extends State<AthkarScreen> {
                           size: 20,
                         ),
                         onPressed: _manualReset,
-                        tooltip: 'Reset Counters',
+                        tooltip: context.tr('Reset Counters'),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
@@ -172,8 +336,8 @@ class _AthkarScreenState extends State<AthkarScreen> {
               const SizedBox(height: 20),
 
               // Title and Subtitle
-              const Text(
-                'After Prayer Athkar',
+              Text(
+                context.tr(widget.title),
                 style: TextStyle(
                   color: ColorsManager.textPrimary,
                   fontSize: 24,
@@ -183,8 +347,23 @@ class _AthkarScreenState extends State<AthkarScreen> {
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'Post-Prayer Supplications',
+              if (widget.showFajrMaghribNote)
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    context.tr(
+                      'Some supplications in this collection are specifically said after Fajr, after Maghrib, or after both prayers. Follow the note shown with each supplication.',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: ColorsManager.textMuted,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              if (widget.showFajrMaghribNote) const SizedBox(height: 8),
+              Text(
+                context.tr('Post-Prayer Supplications'),
                 style: TextStyle(
                   color: ColorsManager.textMuted,
                   fontSize: 14,
@@ -196,7 +375,10 @@ class _AthkarScreenState extends State<AthkarScreen> {
               // Progress Bar Container
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF2C2C2A),
                   borderRadius: BorderRadius.circular(16),
@@ -204,7 +386,7 @@ class _AthkarScreenState extends State<AthkarScreen> {
                 child: Column(
                   children: [
                     Text(
-                      'Progress: ${currentAthkar.currentCount} / ${currentAthkar.totalCount}',
+                      '${context.tr('Progress:')} ${currentAthkar.currentCount} / ${currentAthkar.totalCount}',
                       style: const TextStyle(
                         color: ColorsManager.primaryGold,
                         fontSize: 14,
@@ -236,12 +418,17 @@ class _AthkarScreenState extends State<AthkarScreen> {
                     // Main Card
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 24,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF2C2C2A),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: ColorsManager.primaryGold.withValues(alpha: 0.35),
+                          color: ColorsManager.primaryGold.withValues(
+                            alpha: 0.35,
+                          ),
                           width: 1.2,
                         ),
                         boxShadow: [
@@ -263,43 +450,67 @@ class _AthkarScreenState extends State<AthkarScreen> {
                               textDirection: TextDirection.rtl,
                               style: TextStyle(
                                 color: ColorsManager.primaryGoldLight,
-                                fontSize: currentAthkar.arabicText.length > 30 ? 22 : 36,
+                                fontSize: currentAthkar.arabicText.length > 30
+                                    ? 22
+                                    : 36,
                                 fontWeight: FontWeight.w600,
                                 height: 1.5,
                                 shadows: [
                                   Shadow(
-                                    color: ColorsManager.primaryGold.withValues(alpha: 0.4),
+                                    color: ColorsManager.primaryGold.withValues(
+                                      alpha: 0.4,
+                                    ),
                                     blurRadius: 18,
                                   ),
                                 ],
                               ),
                             ),
                             const SizedBox(height: 20),
-                        
+
                             // Transliteration
-                            Text(
-                              currentAthkar.transliteration,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: ColorsManager.textPrimary,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w500,
+                            if (currentAthkar.transliteration.isNotEmpty)
+                              Text(
+                                currentAthkar.transliteration,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: ColorsManager.textPrimary,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                            ),
+                            if (widget.showFajrMaghribNote &&
+                                (currentAthkar.prayerName
+                                        .toLowerCase()
+                                        .contains('fajr') ||
+                                    currentAthkar.prayerName
+                                        .toLowerCase()
+                                        .contains('maghrib'))) ...[
+                              const SizedBox(height: 10),
+                              Text(
+                                currentAthkar.prayerName,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: ColorsManager.primaryGold,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 8),
-                        
+
                             // Translation
-                            Text(
-                              currentAthkar.translation,
-                              textAlign: TextAlign.center,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: ColorsManager.textMuted,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w400,
+                            if (currentAthkar.translation.isNotEmpty)
+                              Text(
+                                currentAthkar.translation,
+                                textAlign: TextAlign.center,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: ColorsManager.textMuted,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                ),
                               ),
-                            ),
                           ],
                         ),
                       ),
@@ -416,8 +627,8 @@ class _AthkarScreenState extends State<AthkarScreen> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    const Text(
-                      'Tap to Count',
+                    Text(
+                      context.tr('Tap to Count'),
                       style: TextStyle(
                         color: ColorsManager.textSecondary,
                         fontSize: 11,
@@ -425,7 +636,7 @@ class _AthkarScreenState extends State<AthkarScreen> {
                       ),
                     ),
                     Text(
-                      '${currentAthkar.totalCount} times',
+                      '${currentAthkar.totalCount} ${context.tr('times')}',
                       style: const TextStyle(
                         color: ColorsManager.textMuted,
                         fontSize: 10,

@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:azan/models/reciter_model.dart';
 import 'package:azan/services/quran_api_service.dart';
 import 'package:azan/utils/helpers/colors_manager.dart';
+import 'package:azan/utils/helpers/app_language.dart';
 import 'package:azan/utils/helpers/hive_manager.dart';
 import 'package:azan/utils/helpers/quran_data.dart';
+import 'package:azan/utils/helpers/ui_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
@@ -36,7 +38,8 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
   bool _showTransliteration = false;
 
   // Audio Playback State
-  String? _currentlyPlayingKey; // e.g. "surah" for full surah or "ayah_1" for verse 1
+  String?
+  _currentlyPlayingKey; // e.g. "surah" for full surah or "ayah_1" for verse 1
   bool _isPlaying = false;
   bool _isLoadingAudio = false;
   Duration _currentPosition = Duration.zero;
@@ -66,16 +69,21 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
     if (id == surahId) {
       playbackKey = surahId;
     } else if (id.startsWith('${widget.surah.traditionalOrder}_')) {
-      final ayahNumber = id.substring('${widget.surah.traditionalOrder}_'.length);
+      final ayahNumber = id.substring(
+        '${widget.surah.traditionalOrder}_'.length,
+      );
       playbackKey = 'ayah_$ayahNumber';
     }
     if (playbackKey == null) return;
 
-    final reciter = availableReciters.where((item) => item.name == mediaItem.artist);
+    final reciter = availableReciters.where(
+      (item) => item.name == mediaItem.artist,
+    );
     if (reciter.isNotEmpty) _selectedReciter = reciter.first;
     _currentlyPlayingKey = playbackKey;
     _isPlaying = _audioPlayer.playing;
-    _isLoadingAudio = _audioPlayer.processingState == ProcessingState.loading ||
+    _isLoadingAudio =
+        _audioPlayer.processingState == ProcessingState.loading ||
         _audioPlayer.processingState == ProcessingState.buffering;
     _currentPosition = _audioPlayer.position;
     _totalDuration = _audioPlayer.duration ?? Duration.zero;
@@ -129,19 +137,32 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
 
   void _loadVerses() {
     setState(() {
-      _versesFuture = QuranApiService.getSurahVerses(widget.surah.traditionalOrder).then((verses) {
-        if (mounted) {
-          setState(() {
-            _isLocallyCached = true;
+      _versesFuture =
+          QuranApiService.getSurahVerses(widget.surah.traditionalOrder).then((
+            verses,
+          ) {
+            if (mounted) {
+              setState(() {
+                _isLocallyCached = true;
+              });
+            }
+            return verses;
           });
-        }
-        return verses;
-      });
     });
   }
 
   Future<void> _playFullSurah() async {
     final audioKey = 'surah_${widget.surah.traditionalOrder}';
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final localizedSurahName = isArabic
+        ? widget.surah.arabicName
+        : widget.surah.name;
+    final album = context.tr('The Holy Quran');
+    final title = '${context.tr('Surah')} $localizedSurahName';
+    final artist = isArabic
+        ? _selectedReciter.nameArabic
+        : _selectedReciter.name;
+    final playError = context.tr('Could not play Surah audio:');
 
     if (_currentlyPlayingKey == audioKey && _isPlaying) {
       await _audioPlayer.pause();
@@ -159,23 +180,27 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
     });
 
     try {
-      final url = _selectedReciter.getFullSurahAudioUrl(widget.surah.traditionalOrder);
+      final url = _selectedReciter.getFullSurahAudioUrl(
+        widget.surah.traditionalOrder,
+      );
       await _audioPlayer.stop();
-      await _audioPlayer.setAudioSource(AudioSource.uri(
-        Uri.parse(url),
-        tag: MediaItem(
-          id: audioKey,
-          album: 'The Holy Quran',
-          title: 'Surah ${widget.surah.name}',
-          artist: _selectedReciter.name,
+      await _audioPlayer.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(url),
+          tag: MediaItem(
+            id: audioKey,
+            album: album,
+            title: title,
+            artist: artist,
+          ),
         ),
-      ));
+      );
       await _audioPlayer.play();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not play Surah audio: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$playError $e')));
       }
     } finally {
       if (mounted) {
@@ -188,6 +213,15 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
 
   Future<void> _playVerse(QuranAyah ayah) async {
     final audioKey = 'ayah_${ayah.ayah}';
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final albumName = isArabic ? widget.surah.arabicName : widget.surah.name;
+    final album = '${context.tr('The Holy Quran')} • $albumName';
+    final title =
+        '${context.tr('Ayah')} ${UiHelpers.formatDigits(ayah.ayah, arabic: isArabic)}';
+    final artist = isArabic
+        ? _selectedReciter.nameArabic
+        : _selectedReciter.name;
+    final playError = context.tr('Could not play Ayah audio:');
 
     if (_currentlyPlayingKey == audioKey && _isPlaying) {
       await _audioPlayer.pause();
@@ -205,23 +239,28 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
     });
 
     try {
-      final url = _selectedReciter.getAyahAudioUrl(widget.surah.traditionalOrder, ayah.ayah);
+      final url = _selectedReciter.getAyahAudioUrl(
+        widget.surah.traditionalOrder,
+        ayah.ayah,
+      );
       await _audioPlayer.stop();
-      await _audioPlayer.setAudioSource(AudioSource.uri(
-        Uri.parse(url),
-        tag: MediaItem(
-          id: '${widget.surah.traditionalOrder}_${ayah.ayah}',
-          album: 'The Holy Quran • ${widget.surah.name}',
-          title: 'Ayah ${ayah.ayah}',
-          artist: _selectedReciter.name,
+      await _audioPlayer.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(url),
+          tag: MediaItem(
+            id: '${widget.surah.traditionalOrder}_${ayah.ayah}',
+            album: album,
+            title: title,
+            artist: artist,
+          ),
         ),
-      ));
+      );
       await _audioPlayer.play();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not play Ayah audio: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$playError $e')));
       }
     } finally {
       if (mounted) {
@@ -255,8 +294,8 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Select Audio Reciter',
+            Text(
+              context.tr('Select Audio Reciter'),
               style: TextStyle(
                 color: ColorsManager.primaryGold,
                 fontSize: 20,
@@ -265,8 +304,8 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Audio will stream from the selected reciter',
+            Text(
+              context.tr('Audio will stream from the selected reciter'),
               style: TextStyle(color: ColorsManager.textMuted, fontSize: 12),
             ),
             const SizedBox(height: 16),
@@ -282,7 +321,10 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
                   final isSelected = reciter.id == _selectedReciter.id;
 
                   return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 4,
+                      horizontal: 8,
+                    ),
                     onTap: () async {
                       final wasPlaying = _isPlaying;
                       final currentKey = _currentlyPlayingKey;
@@ -294,39 +336,62 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
                         _isPlaying = false;
                       });
 
-                      await HiveManager.addUpdateMetaData('selected_reciter_id', reciter.id);
+                      await HiveManager.addUpdateMetaData(
+                        'selected_reciter_id',
+                        reciter.id,
+                      );
                       if (ctx.mounted) Navigator.pop(ctx);
 
                       // If was playing full surah, resume with new reciter
-                      if (wasPlaying && currentKey == 'surah_${widget.surah.traditionalOrder}') {
+                      if (wasPlaying &&
+                          currentKey ==
+                              'surah_${widget.surah.traditionalOrder}') {
                         _playFullSurah();
                       }
                     },
                     leading: Icon(
-                      isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
-                      color: isSelected ? ColorsManager.primaryGold : ColorsManager.textMuted,
+                      isSelected
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      color: isSelected
+                          ? ColorsManager.primaryGold
+                          : ColorsManager.textMuted,
                       size: 20,
                     ),
                     title: Text(
-                      reciter.name,
+                      Localizations.localeOf(context).languageCode == 'ar'
+                          ? reciter.nameArabic
+                          : reciter.name,
                       style: TextStyle(
-                        color: isSelected ? ColorsManager.primaryGoldLight : ColorsManager.textPrimary,
+                        color: isSelected
+                            ? ColorsManager.primaryGoldLight
+                            : ColorsManager.textPrimary,
                         fontSize: 15,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                       ),
                     ),
                     subtitle: Text(
-                      reciter.style,
-                      style: const TextStyle(color: ColorsManager.textMuted, fontSize: 11),
-                    ),
-                    trailing: Text(
-                      reciter.nameArabic,
-                      style: TextStyle(
-                        color: isSelected ? ColorsManager.primaryGold : ColorsManager.textSecondary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
+                      context.tr(reciter.style),
+                      style: const TextStyle(
+                        color: ColorsManager.textMuted,
+                        fontSize: 11,
                       ),
                     ),
+                    trailing:
+                        Localizations.localeOf(context).languageCode == 'ar'
+                        ? null
+                        : Text(
+                            reciter.nameArabic,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? ColorsManager.primaryGold
+                                  : ColorsManager.textSecondary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                   );
                 },
               ),
@@ -340,7 +405,10 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
   String _formatDuration(Duration d) {
     final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
+    return UiHelpers.localizeDigits(
+      '$minutes:$seconds',
+      arabic: Localizations.localeOf(context).languageCode == 'ar',
+    );
   }
 
   @override
@@ -351,7 +419,11 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
         backgroundColor: const Color(0xFF222220),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: ColorsManager.primaryGold, size: 20),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            color: ColorsManager.primaryGold,
+            size: 20,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
@@ -369,23 +441,35 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '${widget.surah.numberOfVerses} Verses • ${widget.surah.location}',
-                  style: const TextStyle(color: ColorsManager.textMuted, fontSize: 11),
+                  '${widget.surah.numberOfVerses} ${context.tr('Verses')} • ${context.tr(widget.surah.location)}',
+                  style: const TextStyle(
+                    color: ColorsManager.textMuted,
+                    fontSize: 11,
+                  ),
                 ),
                 if (_isLocallyCached) ...[
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.green.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.check_circle, color: Colors.green, size: 10),
                         SizedBox(width: 3),
-                        Text('Cached', style: TextStyle(color: Colors.green, fontSize: 9)),
+                        Text(
+                          context.tr('Cached'),
+                          style: const TextStyle(
+                            color: Colors.green,
+                            fontSize: 9,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -398,7 +482,7 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.mic, color: ColorsManager.primaryGold),
-            tooltip: 'Change Reciter',
+            tooltip: context.tr('Change Reciter'),
             onPressed: _showReciterSelector,
           ),
           PopupMenuButton<String>(
@@ -407,7 +491,9 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
             onSelected: (val) {
               setState(() {
                 if (val == 'translation') _showTranslation = !_showTranslation;
-                if (val == 'transliteration') _showTransliteration = !_showTransliteration;
+                if (val == 'transliteration') {
+                  _showTransliteration = !_showTransliteration;
+                }
                 if (val == 'reciter') _showReciterSelector();
               });
             },
@@ -415,16 +501,25 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
               CheckedPopupMenuItem(
                 value: 'translation',
                 checked: _showTranslation,
-                child: const Text('Translation', style: TextStyle(color: ColorsManager.textPrimary)),
+                child: Text(
+                  context.tr('Translation'),
+                  style: const TextStyle(color: ColorsManager.textPrimary),
+                ),
               ),
               CheckedPopupMenuItem(
                 value: 'transliteration',
                 checked: _showTransliteration,
-                child: const Text('Transliteration', style: TextStyle(color: ColorsManager.textPrimary)),
+                child: Text(
+                  context.tr('Transliteration'),
+                  style: const TextStyle(color: ColorsManager.textPrimary),
+                ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'reciter',
-                child: Text('Change Reciter', style: TextStyle(color: ColorsManager.primaryGold)),
+                child: Text(
+                  context.tr('Change Reciter'),
+                  style: const TextStyle(color: ColorsManager.primaryGold),
+                ),
               ),
             ],
           ),
@@ -438,11 +533,20 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const CircularProgressIndicator(color: ColorsManager.primaryGold),
+                  const CircularProgressIndicator(
+                    color: ColorsManager.primaryGold,
+                  ),
                   const SizedBox(height: 18),
                   Text(
-                    _isLocallyCached ? 'Loading from cache...' : 'Retrieving Surah from API (one-time)...',
-                    style: const TextStyle(color: ColorsManager.textMuted, fontSize: 13),
+                    context.tr(
+                      _isLocallyCached
+                          ? 'Loading from cache...'
+                          : 'Retrieving Surah from API (one-time)...',
+                    ),
+                    style: const TextStyle(
+                      color: ColorsManager.textMuted,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
@@ -456,23 +560,39 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.cloud_off, color: Colors.redAccent, size: 48),
+                    const Icon(
+                      Icons.cloud_off,
+                      color: Colors.redAccent,
+                      size: 48,
+                    ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Failed to load Surah',
-                      style: TextStyle(color: ColorsManager.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+                    Text(
+                      context.tr('Failed to load Surah'),
+                      style: TextStyle(
+                        color: ColorsManager.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       '${snapshot.error}',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: ColorsManager.textMuted, fontSize: 12),
+                      style: const TextStyle(
+                        color: ColorsManager.textMuted,
+                        fontSize: 12,
+                      ),
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: ColorsManager.primaryGoldDark),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: ColorsManager.primaryGoldDark,
+                      ),
                       onPressed: _loadVerses,
-                      child: const Text('Retry', style: TextStyle(color: Colors.white)),
+                      child: Text(
+                        context.tr('Retry'),
+                        style: const TextStyle(color: Colors.white),
+                      ),
                     ),
                   ],
                 ),
@@ -487,8 +607,12 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
               // Scrollable Verses List
               Expanded(
                 child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  itemCount: verses.length + 1, // +1 for the Surah header banner
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  itemCount:
+                      verses.length + 1, // +1 for the Surah header banner
                   separatorBuilder: (ctx, idx) => Divider(
                     color: Colors.white.withValues(alpha: 0.08),
                     height: 28,
@@ -514,8 +638,12 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
   }
 
   Widget _buildSurahBanner() {
-    final showBismillah = widget.surah.traditionalOrder != 9 && widget.surah.traditionalOrder != 1;
-    final isPlayingFullSurah = _currentlyPlayingKey == 'surah_${widget.surah.traditionalOrder}' && _isPlaying;
+    final showBismillah =
+        widget.surah.traditionalOrder != 9 &&
+        widget.surah.traditionalOrder != 1;
+    final isPlayingFullSurah =
+        _currentlyPlayingKey == 'surah_${widget.surah.traditionalOrder}' &&
+        _isPlaying;
 
     return Container(
       width: double.infinity,
@@ -556,7 +684,7 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
           ),
           const SizedBox(height: 6),
           Text(
-            'Surah ${widget.surah.name}',
+            '${context.tr('Surah')} ${Localizations.localeOf(context).languageCode == 'ar' ? widget.surah.arabicName : widget.surah.name}',
             style: const TextStyle(
               color: ColorsManager.textPrimary,
               fontSize: 18,
@@ -565,26 +693,37 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
           ),
           const SizedBox(height: 4),
           Text(
-            '${widget.surah.location} • ${widget.surah.numberOfVerses} Verses • Revelation #${widget.surah.chronologicalOrder}',
-            style: const TextStyle(color: ColorsManager.textMuted, fontSize: 12),
+            '${context.tr(widget.surah.location)} • ${widget.surah.numberOfVerses} ${context.tr('Verses')} • ${context.tr('Revelation')} #${widget.surah.chronologicalOrder}',
+            style: const TextStyle(
+              color: ColorsManager.textMuted,
+              fontSize: 12,
+            ),
           ),
           const SizedBox(height: 14),
 
           // Play Full Surah Button
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: isPlayingFullSurah ? ColorsManager.primaryGoldDark : const Color(0xFF333330),
+              backgroundColor: isPlayingFullSurah
+                  ? ColorsManager.primaryGoldDark
+                  : const Color(0xFF333330),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             ),
             icon: Icon(
-              isPlayingFullSurah ? Icons.pause_circle_filled : Icons.play_circle_fill,
+              isPlayingFullSurah
+                  ? Icons.pause_circle_filled
+                  : Icons.play_circle_fill,
               color: ColorsManager.primaryGold,
               size: 22,
             ),
             label: Text(
-              isPlayingFullSurah ? 'Playing Full Surah' : 'Play Full Surah (${_selectedReciter.name})',
+              isPlayingFullSurah
+                  ? context.tr('Playing Full Surah')
+                  : '${context.tr('Play Full Surah')} (${_selectedReciter.name})',
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             ),
             onPressed: _playFullSurah,
@@ -615,8 +754,10 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
   }
 
   Widget _buildAyahItem(QuranAyah ayah) {
-    final isThisAyahPlaying = _currentlyPlayingKey == 'ayah_${ayah.ayah}' && _isPlaying;
-    final isThisAyahLoading = _currentlyPlayingKey == 'ayah_${ayah.ayah}' && _isLoadingAudio;
+    final isThisAyahPlaying =
+        _currentlyPlayingKey == 'ayah_${ayah.ayah}' && _isPlaying;
+    final isThisAyahLoading =
+        _currentlyPlayingKey == 'ayah_${ayah.ayah}' && _isLoadingAudio;
 
     return Container(
       padding: isThisAyahPlaying ? const EdgeInsets.all(12) : EdgeInsets.zero,
@@ -624,7 +765,9 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
           ? BoxDecoration(
               color: ColorsManager.primaryGold.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: ColorsManager.primaryGold.withValues(alpha: 0.3)),
+              border: Border.all(
+                color: ColorsManager.primaryGold.withValues(alpha: 0.3),
+              ),
             )
           : null,
       child: Column(
@@ -641,7 +784,9 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
                     height: 32,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: isThisAyahPlaying ? ColorsManager.primaryGold : const Color(0xFF282826),
+                      color: isThisAyahPlaying
+                          ? ColorsManager.primaryGold
+                          : const Color(0xFF282826),
                       border: Border.all(
                         color: ColorsManager.primaryGold.withValues(alpha: 0.5),
                       ),
@@ -650,7 +795,9 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
                     child: Text(
                       '${ayah.ayah}',
                       style: TextStyle(
-                        color: isThisAyahPlaying ? const Color(0xFF191A19) : ColorsManager.primaryGold,
+                        color: isThisAyahPlaying
+                            ? const Color(0xFF191A19)
+                            : ColorsManager.primaryGold,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -659,7 +806,10 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
                   const SizedBox(width: 8),
                   Text(
                     ayah.verseKey,
-                    style: const TextStyle(color: ColorsManager.textMuted, fontSize: 11),
+                    style: const TextStyle(
+                      color: ColorsManager.textMuted,
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
@@ -669,7 +819,10 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
                 onTap: () => _playVerse(ayah),
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: isThisAyahPlaying
                         ? ColorsManager.primaryGold
@@ -686,19 +839,26 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
                         const SizedBox(
                           width: 14,
                           height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: ColorsManager.primaryGold),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: ColorsManager.primaryGold,
+                          ),
                         )
                       else
                         Icon(
                           isThisAyahPlaying ? Icons.pause : Icons.play_arrow,
-                          color: isThisAyahPlaying ? const Color(0xFF191A19) : ColorsManager.primaryGold,
+                          color: isThisAyahPlaying
+                              ? const Color(0xFF191A19)
+                              : ColorsManager.primaryGold,
                           size: 16,
                         ),
                       const SizedBox(width: 4),
                       Text(
-                        isThisAyahPlaying ? 'Playing' : 'Audio',
+                        context.tr(isThisAyahPlaying ? 'Playing' : 'Audio'),
                         style: TextStyle(
-                          color: isThisAyahPlaying ? const Color(0xFF191A19) : ColorsManager.primaryGold,
+                          color: isThisAyahPlaying
+                              ? const Color(0xFF191A19)
+                              : ColorsManager.primaryGold,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -761,14 +921,21 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
     }
 
     final isSurah = _currentlyPlayingKey!.startsWith('surah');
-    final title = isSurah ? 'Playing Surah ${widget.surah.name}' : 'Playing Ayah ${_currentlyPlayingKey!.replaceAll('ayah_', '')}';
+    final surahName = Localizations.localeOf(context).languageCode == 'ar'
+        ? widget.surah.arabicName
+        : widget.surah.name;
+    final title = isSurah
+        ? '${context.tr('Playing Surah')} $surahName'
+        : '${context.tr('Playing Ayah')} ${_currentlyPlayingKey!.replaceAll('ayah_', '')}';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF242422),
         border: Border(
-          top: BorderSide(color: ColorsManager.primaryGold.withValues(alpha: 0.3)),
+          top: BorderSide(
+            color: ColorsManager.primaryGold.withValues(alpha: 0.3),
+          ),
         ),
         boxShadow: [
           BoxShadow(
@@ -799,8 +966,13 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
                         ),
                       ),
                       Text(
-                        _selectedReciter.name,
-                        style: const TextStyle(color: ColorsManager.textMuted, fontSize: 11),
+                        Localizations.localeOf(context).languageCode == 'ar'
+                            ? _selectedReciter.nameArabic
+                            : _selectedReciter.name,
+                        style: const TextStyle(
+                          color: ColorsManager.textMuted,
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                   ),
@@ -809,7 +981,9 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
                   children: [
                     IconButton(
                       icon: Icon(
-                        _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
+                        _isPlaying
+                            ? Icons.pause_circle_filled
+                            : Icons.play_circle_fill,
                         color: ColorsManager.primaryGold,
                         size: 32,
                       ),
@@ -822,7 +996,11 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
                       },
                     ),
                     IconButton(
-                      icon: const Icon(Icons.stop_circle_outlined, color: ColorsManager.textMuted, size: 26),
+                      icon: const Icon(
+                        Icons.stop_circle_outlined,
+                        color: ColorsManager.textMuted,
+                        size: 26,
+                      ),
                       onPressed: () {
                         _audioPlayer.stop();
                         setState(() {
@@ -837,14 +1015,18 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
             if (_totalDuration.inSeconds > 0) ...[
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 5,
+                  ),
                   trackHeight: 3,
                   activeTrackColor: ColorsManager.primaryGold,
                   inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
                   thumbColor: ColorsManager.primaryGold,
                 ),
                 child: Slider(
-                  value: _currentPosition.inMilliseconds.clamp(0, _totalDuration.inMilliseconds).toDouble(),
+                  value: _currentPosition.inMilliseconds
+                      .clamp(0, _totalDuration.inMilliseconds)
+                      .toDouble(),
                   max: _totalDuration.inMilliseconds.toDouble(),
                   onChanged: (val) {
                     _audioPlayer.seek(Duration(milliseconds: val.toInt()));
@@ -856,8 +1038,20 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(_formatDuration(_currentPosition), style: const TextStyle(color: ColorsManager.textMuted, fontSize: 10)),
-                    Text(_formatDuration(_totalDuration), style: const TextStyle(color: ColorsManager.textMuted, fontSize: 10)),
+                    Text(
+                      _formatDuration(_currentPosition),
+                      style: const TextStyle(
+                        color: ColorsManager.textMuted,
+                        fontSize: 10,
+                      ),
+                    ),
+                    Text(
+                      _formatDuration(_totalDuration),
+                      style: const TextStyle(
+                        color: ColorsManager.textMuted,
+                        fontSize: 10,
+                      ),
+                    ),
                   ],
                 ),
               ),
