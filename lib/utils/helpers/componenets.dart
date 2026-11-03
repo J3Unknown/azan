@@ -100,8 +100,8 @@ Future<void> scheduleTask(PrayerModel model) async {
   // Version channel IDs so Android applies the current custom sound even if an
   // older channel with stale sound settings was already created on the device.
   final String channelId = isFajr
-      ? 'adhan-fajr-channel-v2'
-      : 'adhan-other-channel-v2';
+      ? 'adhan-fajr-channel-v4'
+      : 'adhan-other-channel-v4';
   final String channelName = isFajr
       ? 'Fajr Prayer Adhan'
       : 'Other Prayers Adhan';
@@ -110,7 +110,8 @@ Future<void> scheduleTask(PrayerModel model) async {
     channelId,
     channelName,
     channelDescription: 'Play adhan at exact prayer time',
-    importance: Importance.high,
+    category: AndroidNotificationCategory.alarm,
+    importance: Importance.max,
     priority: Priority.max,
     audioAttributesUsage: AudioAttributesUsage.alarm,
     sound: RawResourceAndroidNotificationSound(soundName),
@@ -118,16 +119,46 @@ Future<void> scheduleTask(PrayerModel model) async {
   );
 
   try {
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      id: model.prayerID,
-      title: 'Prayer Time',
-      body: 'It\'s time for ${model.prayerName} prayer',
-      scheduledDate: tz.TZDateTime.from(model.prayerTime, tz.local),
-      notificationDetails: NotificationDetails(android: androidDetails),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-    );
+    final androidNotifications = flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    final canScheduleExact = await androidNotifications
+        ?.canScheduleExactNotifications();
+    final scheduledDate = tz.TZDateTime.from(nextPrayerTime, tz.local);
+    final notificationDetails = NotificationDetails(android: androidDetails);
+    final scheduleMode = canScheduleExact == false
+        ? AndroidScheduleMode.inexactAllowWhileIdle
+        : AndroidScheduleMode.exactAllowWhileIdle;
+
+    try {
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        id: model.prayerID,
+        title: 'Prayer Time',
+        body: 'It\'s time for ${model.prayerName} prayer',
+        scheduledDate: scheduledDate,
+        notificationDetails: notificationDetails,
+        androidScheduleMode: scheduleMode,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    } catch (error) {
+      if (scheduleMode != AndroidScheduleMode.exactAllowWhileIdle) rethrow;
+      log('Exact alarm scheduling failed; using inexact mode: $error');
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        id: model.prayerID,
+        title: 'Prayer Time',
+        body: 'It\'s time for ${model.prayerName} prayer',
+        scheduledDate: scheduledDate,
+        notificationDetails: notificationDetails,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    }
   } catch (e) {
-    log('Failed to schedule prayer notification: $e');
+    log(
+      'Failed to schedule prayer ${model.prayerName} '
+      'for $nextPrayerTime: $e',
+    );
   }
 }
 

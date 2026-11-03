@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="prayer_widget_description">Prayer times, countdown to the next prayer, and Hijri date</string>
+    <string name="prayer_widget_description">Prayer times and countdown to the next prayer</string>
     <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is off -->
     <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <!-- Show a splash screen on the activity. Automatically removed when
@@ -15,5 +15,44 @@
          This Theme is only used starting with V2 of Flutter's Android embedding. -->
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+
+    <style name="PrayerWidgetTile">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_marginEnd">3dp</item>
+        <item name="android:background">@drawable/prayer_widget_prayer_tile</item>
+        <item name="android:gravity">center</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:paddingStart">2dp</item>
+        <item name="android:paddingTop">2dp</item>
+        <item name="android:paddingEnd">2dp</item>
+        <item name="android:paddingBottom">2dp</item>
+    </style>
+
+    <style name="PrayerWidgetName">
+        <item name="android:autoSizeTextType">uniform</item>
+        <item name="android:autoSizeMinTextSize">14sp</item>
+        <item name="android:autoSizeMaxTextSize">19.5sp</item>
+        <item name="android:autoSizeStepGranularity">0.5sp</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:textColor">#FFF0ECE3</item>
+        <item name="android:textSize">19.5sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="PrayerWidgetTime">
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">1dp</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:textColor">#FFE0C77E</item>
+        <item name="android:textSize">18sp</item>
     </style>
 </resources>
