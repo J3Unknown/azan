@@ -13,6 +13,24 @@ val signingProperties = Properties().apply {
         propertiesFile.inputStream().use { load(it) }
     }
 }
+val requiredSigningProperties = listOf(
+    "storeFile",
+    "storePassword",
+    "keyAlias",
+    "keyPassword",
+)
+val missingSigningProperties = requiredSigningProperties.filter {
+    signingProperties.getProperty(it).isNullOrBlank()
+}
+val releaseRequested = gradle.startParameter.taskNames.any {
+    it.contains("release", ignoreCase = true)
+}
+if (releaseRequested && missingSigningProperties.isNotEmpty()) {
+    throw GradleException(
+        "Release builds require android/key.properties with: " +
+            missingSigningProperties.joinToString() + ". See android/key.properties.example."
+    )
+}
 
 android {
     namespace = "com.unknown.azan"
@@ -45,8 +63,12 @@ android {
         release {
             val keystorePath = signingProperties.getProperty("storeFile")
             if (!keystorePath.isNullOrBlank()) {
+                val releaseKeystore = file(keystorePath)
+                if (releaseRequested && !releaseKeystore.isFile) {
+                    throw GradleException("Release keystore was not found: $releaseKeystore")
+                }
                 signingConfig = signingConfigs.create("release") {
-                    storeFile = file(keystorePath)
+                    storeFile = releaseKeystore
                     storePassword = signingProperties.getProperty("storePassword")
                     keyAlias = signingProperties.getProperty("keyAlias")
                     keyPassword = signingProperties.getProperty("keyPassword")
