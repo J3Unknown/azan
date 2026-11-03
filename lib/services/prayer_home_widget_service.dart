@@ -3,7 +3,7 @@ import 'package:home_widget/home_widget.dart';
 
 class PrayerHomeWidgetService {
   static const _providerName = 'PrayerTimesWidgetProvider';
-  static const _providerClass = 'com.example.azan.PrayerTimesWidgetProvider';
+  static const _providerClass = 'com.unknown.azan.PrayerTimesWidgetProvider';
 
   static Future<void> update(List<PrayerModel> prayers) async {
     if (prayers.isEmpty) return;

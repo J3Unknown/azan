@@ -1,17 +1,24 @@
-# azan
+# Azan
 
-A new Flutter project.
+Azan is a Flutter prayer times and daily worship reminders app. Prayer times are
+calculated for the saved device location, with AlAdhan API refresh and local
+calculation fallback. The app also includes Quran audio, prayer notifications,
+and a home screen prayer-times widget.
 
-## Getting Started
+## Build for Android
 
-This project is a starting point for a Flutter application.
+Use the Flutter SDK version required by `pubspec.yaml` (Dart 3.11.1 or newer).
 
-A few resources to get you started if this is your first Flutter project:
+```sh
+flutter pub get
+flutter build appbundle --release
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Before building a production bundle, set a permanent, unique Android
+application ID in `android/app/build.gradle.kts`, configure the upload key in
+`android/key.properties` (see `android/key.properties.example`), and increment
+the `version` in `pubspec.yaml` for each Play release. Keep the keystore and
+passwords private and backed up. Never commit them.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+See the [privacy policy](docs/privacy-policy.md) for information about data
+handled by the app.

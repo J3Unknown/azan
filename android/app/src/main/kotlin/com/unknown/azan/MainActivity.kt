@@ -1,4 +1,4 @@
-package com.example.azan
+package com.unknown.azan
 
 import io.flutter.embedding.android.FlutterActivity
 

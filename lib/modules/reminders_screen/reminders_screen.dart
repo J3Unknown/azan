@@ -29,9 +29,37 @@ class _RemindersScreenState extends State<RemindersScreen> {
     if (cachedCity != null && cachedCity.toString().isNotEmpty) {
       _city = cachedCity.toString();
     }
-    setState(() {
-      _reminders = HiveManager.getReminders();
-    });
+    final reminders = HiveManager.getReminders();
+    final today = DateTime.now();
+    for (final reminder in reminders) {
+      if (reminder.isCompleted && _isRepeatDueToday(reminder, today)) {
+        reminder.isCompleted = false;
+        HiveManager.updateReminder(reminder);
+      }
+    }
+    setState(() => _reminders = reminders);
+  }
+
+  bool _isRepeatDueToday(ReminderModel reminder, DateTime now) {
+    if (reminder.repeatTimes == 0 || reminder.repeatInterval == 'none') return false;
+    final anchor = DateTime(
+      reminder.reminderDate.year,
+      reminder.reminderDate.month,
+      reminder.reminderDate.day,
+    );
+    final today = DateTime(now.year, now.month, now.day);
+    if (today.isBefore(anchor)) return false;
+    switch (reminder.repeatInterval) {
+      case 'weekly':
+        return today.difference(anchor).inDays % 7 == 0;
+      case 'monthly':
+        return today.day == anchor.day ||
+            (today.month != anchor.month &&
+                today.day == DateTime(today.year, today.month + 1, 0).day &&
+                anchor.day > today.day);
+      default:
+        return true;
+    }
   }
 
   Future<void> _togglePin(ReminderModel reminder) async {

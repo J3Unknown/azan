@@ -43,7 +43,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.example.azan.quran.audio',
+    androidNotificationChannelId: 'com.unknown.azan.quran.audio',
     androidNotificationChannelName: 'Quran playback',
     androidNotificationOngoing: true,
   );

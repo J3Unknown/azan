@@ -37,8 +37,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   Future<void> _initializeApp() async {
     try {
+      await getCity();
       await Future.wait([
-        getCity(),
         recalculateAndStorePrayerTimes(),
         checkAndResetAthkarForPrayerTimes(),
         Future.delayed(const Duration(milliseconds: 1600)),
