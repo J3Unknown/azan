@@ -1,6 +1,5 @@
 import 'package:azan/models/prayer_model.dart';
 import 'package:home_widget/home_widget.dart';
-import 'package:hijri/hijri_calendar.dart';
 
 class PrayerHomeWidgetService {
   static const _providerName = 'PrayerTimesWidgetProvider';
@@ -47,12 +46,7 @@ class PrayerHomeWidgetService {
             );
           })();
 
-    final hijri = HijriCalendar.fromDate(now);
-    final monthName = hijri.getLongMonthName();
-    final hijriDate = '${hijri.hDay} $monthName ${hijri.hYear} AH';
-
     final values = <String, Object>{
-      'hijri_date': hijriDate,
       'next_prayer_name': next.prayer.prayerName,
       'next_prayer_epoch': next.time.millisecondsSinceEpoch,
     };

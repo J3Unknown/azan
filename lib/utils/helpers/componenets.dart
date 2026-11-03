@@ -112,7 +112,8 @@ Future<void> scheduleTask(PrayerModel model) async {
     channelId,
     channelName,
     channelDescription: 'Play adhan at exact prayer time',
-    importance: Importance.high,
+    category: AndroidNotificationCategory.alarm,
+    importance: Importance.max,
     priority: Priority.max,
     audioAttributesUsage: AudioAttributesUsage.alarm,
     sound: RawResourceAndroidNotificationSound(soundName),
@@ -120,16 +121,46 @@ Future<void> scheduleTask(PrayerModel model) async {
   );
 
   try {
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      id: model.prayerID,
-      title: 'Prayer Time',
-      body: 'It\'s time for ${model.prayerName} prayer',
-      scheduledDate: tz.TZDateTime.from(model.prayerTime, tz.local),
-      notificationDetails: NotificationDetails(android: androidDetails),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-    );
+    final androidNotifications = flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    final canScheduleExact = await androidNotifications
+        ?.canScheduleExactNotifications();
+    final scheduledDate = tz.TZDateTime.from(nextPrayerTime, tz.local);
+    final notificationDetails = NotificationDetails(android: androidDetails);
+    final scheduleMode = canScheduleExact == false
+        ? AndroidScheduleMode.inexactAllowWhileIdle
+        : AndroidScheduleMode.exactAllowWhileIdle;
+
+    try {
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        id: model.prayerID,
+        title: 'Prayer Time',
+        body: 'It\'s time for ${model.prayerName} prayer',
+        scheduledDate: scheduledDate,
+        notificationDetails: notificationDetails,
+        androidScheduleMode: scheduleMode,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    } catch (error) {
+      if (scheduleMode != AndroidScheduleMode.exactAllowWhileIdle) rethrow;
+      log('Exact alarm scheduling failed; using inexact mode: $error');
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        id: model.prayerID,
+        title: 'Prayer Time',
+        body: 'It\'s time for ${model.prayerName} prayer',
+        scheduledDate: scheduledDate,
+        notificationDetails: notificationDetails,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    }
   } catch (e) {
-    log('Failed to schedule prayer notification: $e');
+    log(
+      'Failed to schedule prayer ${model.prayerName} '
+      'for $nextPrayerTime: $e',
+    );
   }
 }
 
@@ -275,7 +306,8 @@ Future<void> recalculateAndStorePrayerTimes() async {
 
     try {
       final now = DateTime.now();
-      final date = '${now.day.toString().padLeft(2, '0')}-'
+      final date =
+          '${now.day.toString().padLeft(2, '0')}-'
           '${now.month.toString().padLeft(2, '0')}-${now.year}';
       final uri = Uri.https('api.aladhan.com', '/v1/timings/$date', {
         'latitude': lat.toString(),
@@ -287,22 +319,32 @@ Future<void> recalculateAndStorePrayerTimes() async {
       final response = await http.get(uri).timeout(const Duration(seconds: 12));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
-        final timings = (json['data'] as Map<String, dynamic>)['timings']
-            as Map<String, dynamic>;
+        final timings =
+            (json['data'] as Map<String, dynamic>)['timings']
+                as Map<String, dynamic>;
         DateTime parsePrayerTime(String name) {
           final value = (timings[name] as String).split(' ').first;
           final parts = value.split(':');
-          return DateTime(now.year, now.month, now.day,
-              int.parse(parts[0]), int.parse(parts[1]));
+          return DateTime(
+            now.year,
+            now.month,
+            now.day,
+            int.parse(parts[0]),
+            int.parse(parts[1]),
+          );
         }
 
         await setPrayerTimesFromValues(
-          parsePrayerTime('Fajr'), parsePrayerTime('Dhuhr'),
-          parsePrayerTime('Asr'), parsePrayerTime('Maghrib'),
+          parsePrayerTime('Fajr'),
+          parsePrayerTime('Dhuhr'),
+          parsePrayerTime('Asr'),
+          parsePrayerTime('Maghrib'),
           parsePrayerTime('Isha'),
         );
         await HiveManager.addUpdateMetaData(
-            'last-date', now.toIso8601String().split('T').first);
+          'last-date',
+          now.toIso8601String().split('T').first,
+        );
         return;
       }
     } catch (e) {
@@ -326,9 +368,16 @@ Future<void> recalculateAndStorePrayerTimes() async {
 }
 
 Future<void> setPrayerTimesFromValues(
-  DateTime fajr, DateTime dhuhr, DateTime asr, DateTime maghrib, DateTime isha,
+  DateTime fajr,
+  DateTime dhuhr,
+  DateTime asr,
+  DateTime maghrib,
+  DateTime isha,
 ) async {
-  final existing = {for (final prayer in HiveManager.getPrayer()) prayer.prayerID: prayer.isEnabled};
+  final existing = {
+    for (final prayer in HiveManager.getPrayer())
+      prayer.prayerID: prayer.isEnabled,
+  };
   final prayers = [
     PrayerModel(1, 'Fajr', fajr, isEnabled: existing[1] ?? true),
     PrayerModel(2, 'Dhuhr', dhuhr, isEnabled: existing[2] ?? true),
