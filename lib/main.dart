@@ -71,6 +71,12 @@ void main() async {
   await androidNotifications?.requestNotificationsPermission();
   await androidNotifications?.requestExactAlarmsPermission();
 
+  // Repair saved alarms before location/network work so an offline launch also
+  // migrates notifications to the current sound channels.
+  for (final prayer in HiveManager.getPrayer()) {
+    await scheduleTask(prayer);
+  }
+
   // Initialize Workmanager for 8-hour periodic recalculation
   try {
     Workmanager().initialize(callbackDispatcher);

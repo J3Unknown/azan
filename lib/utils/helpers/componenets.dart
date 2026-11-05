@@ -103,7 +103,7 @@ Future<void> scheduleTask(PrayerModel model) async {
   // older channel with stale sound settings was already created on the device.
   final String channelId = isFajr
       ? 'adhan-fajr-channel-v3'
-      : 'adhan-other-channel-v3';
+      : 'adhan-other-new-others-v1';
   final String channelName = isFajr
       ? 'Fajr Prayer Adhan'
       : 'Other Prayers Adhan';
@@ -127,6 +127,17 @@ Future<void> scheduleTask(PrayerModel model) async {
         >();
     final canScheduleExact = await androidNotifications
         ?.canScheduleExactNotifications();
+    await androidNotifications?.createNotificationChannel(
+      AndroidNotificationChannel(
+        channelId,
+        channelName,
+        description: 'Play adhan at exact prayer time',
+        importance: Importance.max,
+        playSound: true,
+        sound: RawResourceAndroidNotificationSound(soundName),
+        audioAttributesUsage: AudioAttributesUsage.alarm,
+      ),
+    );
     final scheduledDate = tz.TZDateTime.from(nextPrayerTime, tz.local);
     final notificationDetails = NotificationDetails(android: androidDetails);
     final scheduleMode = canScheduleExact == false
