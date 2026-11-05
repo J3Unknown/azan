@@ -469,7 +469,7 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
                               children: [
                                 Expanded(
                                   child: Text(
-                                    context.tr('Could not load tafseer'),
+                                    '${context.tr('Could not load tafseer')}\n${snapshot.error}',
                                     style: const TextStyle(
                                       color: ColorsManager.textMuted,
                                     ),

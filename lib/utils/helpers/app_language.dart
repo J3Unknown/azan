@@ -71,11 +71,17 @@ const Map<String, String> _arabicTranslations = {
   'Isha': 'العشاء',
   'Qibla Direction': 'اتجاه القبلة',
   '✨ You are facing the Holy Kaaba!': '✨ أنت تواجه الكعبة المشرفة!',
-  'Turn your device until the needle points up':
-      'حرّك جهازك حتى يشير المؤشر إلى الأعلى',
+  'Lay your phone flat and turn until the Qibla marker points up.':
+      'ضع الهاتف أفقيًا وحرّكه حتى يشير مؤشر القبلة إلى الأعلى.',
   'Compass sensor not detected. Showing calculated angle.':
       'لم يتم اكتشاف مستشعر البوصلة. يتم عرض الزاوية المحسوبة.',
+  'Location permission is needed for compass heading.':
+      'يلزم السماح بالوصول إلى الموقع للحصول على اتجاه البوصلة.',
   'Qibla Bearing': 'اتجاه القبلة',
+  'Point the back of your phone toward the Qibla.':
+      'وجّه ظهر الهاتف نحو القبلة.',
+  'Compass accuracy is low. Move away from metal or magnets and move the phone in a figure eight.':
+      'دقة البوصلة منخفضة. ابتعد عن المعادن والمغناطيس وحرّك الهاتف على شكل رقم ٨.',
   'Distance to Kaaba': 'المسافة إلى الكعبة',
   'Heading:': 'اتجاه الجهاز:',
   'km': 'كم',

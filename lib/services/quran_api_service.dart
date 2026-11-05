@@ -152,12 +152,21 @@ class AyahTafseer {
 }
 
 class TafseerApiService {
-  static const String baseUrl = 'https://api.quran-tafseer.com/tafseer';
+  // This API is published over HTTP. Its HTTPS endpoint does not reliably
+  // respond, so keep the documented scheme and permit this host explicitly on
+  // platforms that block cleartext traffic by default.
+  static const String baseUrl = 'http://api.quran-tafseer.com/tafseer/';
+
+  static Future<http.Response> _get(String path) => http
+      .get(Uri.parse('$baseUrl$path'), headers: const {'Accept': 'application/json'})
+      .timeout(const Duration(seconds: 20));
 
   static Future<List<TafseerType>> getTypes() async {
-    final response = await http.get(Uri.parse(baseUrl));
+    final response = await _get('');
     if (response.statusCode != 200) {
-      throw Exception('Failed to load tafseer types (${response.statusCode})');
+      throw Exception(
+        'Failed to load tafseer types (${response.statusCode}): ${response.body}',
+      );
     }
     final decoded = jsonDecode(response.body) as List;
     return decoded
@@ -170,11 +179,11 @@ class TafseerApiService {
     int surahId,
     int verseId,
   ) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/$tafseerId/$surahId/$verseId'),
-    );
+    final response = await _get('$tafseerId/$surahId/$verseId');
     if (response.statusCode != 200) {
-      throw Exception('Failed to load tafseer (${response.statusCode})');
+      throw Exception(
+        'Failed to load tafseer (${response.statusCode}): ${response.body}',
+      );
     }
     return AyahTafseer.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,

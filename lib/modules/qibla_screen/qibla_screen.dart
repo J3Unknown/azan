@@ -5,9 +5,12 @@ import 'package:azan/utils/helpers/app_language.dart';
 import 'package:azan/utils/helpers/componenets.dart';
 import 'package:azan/utils/helpers/hive_manager.dart';
 import 'package:azan/utils/helpers/ui_helpers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_compass/flutter_compass.dart';
+import 'package:flutter_device_compass/flutter_device_compass.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class QiblaScreen extends StatefulWidget {
@@ -20,6 +23,7 @@ class QiblaScreen extends StatefulWidget {
 }
 
 class _QiblaScreenState extends State<QiblaScreen> {
+  static const MethodChannel _compassChannel = MethodChannel('azan/compass');
   String _city = 'Cairo, Egypt';
   final DateTime _currentDate = DateTime.now();
   double _userLat = 30.0444;
@@ -27,8 +31,13 @@ class _QiblaScreenState extends State<QiblaScreen> {
   late QiblaData _qiblaData;
 
   StreamSubscription<CompassEvent>? _compassSubscription;
+  StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
   double? _deviceHeading; // Heading from North in degrees (0..360)
+  double? _headingAccuracy;
+  double _magneticDeclination = 0;
+  bool _useCameraHeading = false;
   bool _hasCompassSensor = true;
+  bool _locationPermissionDenied = false;
   bool _wasAligned = false;
 
   @override
@@ -47,14 +56,56 @@ class _QiblaScreenState extends State<QiblaScreen> {
       _initCompass();
     } else {
       _compassSubscription?.cancel();
+      _accelerometerSubscription?.cancel();
       _compassSubscription = null;
+      _accelerometerSubscription = null;
       _deviceHeading = null;
+      _headingAccuracy = null;
       _wasAligned = false;
     }
   }
 
   void _initCompass() {
-    final stream = FlutterCompass.events;
+    _startCompassStream();
+  }
+
+  Future<void> _startCompassStream() async {
+    if (Theme.of(context).platform == TargetPlatform.iOS) {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (!mounted || !widget.isActive) return;
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        setState(() {
+          _hasCompassSensor = false;
+          _locationPermissionDenied = true;
+        });
+        return;
+      }
+    }
+    if (!mounted || !widget.isActive) return;
+
+    _compassSubscription?.cancel();
+    _accelerometerSubscription?.cancel();
+    _accelerometerSubscription = accelerometerEventStream().listen(
+      (event) {
+        if (!mounted) return;
+        // With the screen facing up, gravity is mostly on the Z axis. When
+        // upright, gravity is mostly on X or Y, so use the back-facing axis.
+        final screenNormalGravity = event.z.abs();
+        // Hysteresis prevents rapid axis switching around the transition angle.
+        final useCameraHeading = _useCameraHeading
+            ? screenNormalGravity < 7.5
+            : screenNormalGravity < 5.5;
+        if (useCameraHeading != _useCameraHeading) {
+          setState(() => _useCameraHeading = useCameraHeading);
+        }
+      },
+      onError: (_) {},
+    );
+    final stream = FlutterCompass.eventsFor(CompassUpdateOptions.balanced);
     if (stream == null) {
       setState(() {
         _hasCompassSensor = false;
@@ -65,11 +116,26 @@ class _QiblaScreenState extends State<QiblaScreen> {
     _compassSubscription = stream.listen(
       (CompassEvent event) {
         if (!mounted) return;
-        final heading = event.heading;
+        final heading = _useCameraHeading
+            ? (event.headingForCameraMode ?? event.heading)
+            : event.heading;
         if (heading != null) {
-          // Check alignment with Kaaba (within +/- 3 degrees)
-          final diff = (_qiblaData.bearing - heading).abs() % 360;
-          final isAligned = diff <= 3 || diff >= 357;
+          // Android reports magnetic north; convert it to true north before
+          // comparing it with the geographic Qibla bearing.
+          final correctedHeading = _normalizeHeading(
+            heading + _magneticDeclination,
+          );
+          final diff = (_qiblaData.bearing - correctedHeading).abs() % 360;
+          final reportedAccuracy = event.accuracy;
+          final accuracy = reportedAccuracy != null && reportedAccuracy >= 0
+              ? reportedAccuracy
+              : null;
+          final tolerance = accuracy == null
+              ? 5.0
+              : math.max(3.0, math.min(accuracy, 10.0));
+          final isAligned =
+              (accuracy != null && accuracy <= 30) &&
+              (diff <= tolerance || diff >= 360 - tolerance);
 
           if (isAligned && !_wasAligned) {
             HapticFeedback.mediumImpact();
@@ -78,7 +144,9 @@ class _QiblaScreenState extends State<QiblaScreen> {
 
           setState(() {
             _deviceHeading = heading;
+            _headingAccuracy = accuracy;
             _hasCompassSensor = true;
+            _locationPermissionDenied = false;
           });
         }
       },
@@ -92,9 +160,12 @@ class _QiblaScreenState extends State<QiblaScreen> {
     );
   }
 
+  double _normalizeHeading(double heading) => (heading % 360 + 360) % 360;
+
   @override
   void dispose() {
     _compassSubscription?.cancel();
+    _accelerometerSubscription?.cancel();
     super.dispose();
   }
 
@@ -117,15 +188,35 @@ class _QiblaScreenState extends State<QiblaScreen> {
         _qiblaData = newQibla;
       });
     }
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        final declination = await _compassChannel.invokeMethod<num>(
+          'getMagneticDeclination',
+          {'latitude': _userLat, 'longitude': _userLng},
+        );
+        if (mounted && declination != null) {
+          setState(() => _magneticDeclination = declination.toDouble());
+        }
+      } on PlatformException {
+        // Fall back to the device's magnetic heading if the model is unavailable.
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     // Current heading in degrees; default to 0 if sensor not ready
-    final currentHeading = _deviceHeading ?? 0.0;
+    final currentHeading = _normalizeHeading(
+      (_deviceHeading ?? 0.0) + _magneticDeclination,
+    );
     // Calculate angle difference relative to phone top
     final diffDegrees = (_qiblaData.bearing - currentHeading + 360) % 360;
-    final isFacingQibla = diffDegrees <= 3 || diffDegrees >= 357;
+    final tolerance = _headingAccuracy == null
+        ? 5.0
+        : math.max(3.0, math.min(_headingAccuracy!, 10.0));
+    final isFacingQibla =
+        (_headingAccuracy != null && _headingAccuracy! <= 30) &&
+        (diffDegrees <= tolerance || diffDegrees >= 360 - tolerance);
 
     return Scaffold(
       backgroundColor: const Color(0xFF191A19),
@@ -188,7 +279,11 @@ class _QiblaScreenState extends State<QiblaScreen> {
               Text(
                 isFacingQibla
                     ? context.tr('✨ You are facing the Holy Kaaba!')
-                    : context.tr('Turn your device until the needle points up'),
+                    : context.tr(
+                        _useCameraHeading
+                            ? 'Point the back of your phone toward the Qibla.'
+                            : 'Lay your phone flat and turn until the Qibla marker points up.',
+                      ),
                 style: TextStyle(
                   color: isFacingQibla
                       ? ColorsManager.primaryGoldLight
@@ -230,7 +325,9 @@ class _QiblaScreenState extends State<QiblaScreen> {
                       SizedBox(width: 8),
                       Text(
                         context.tr(
-                          'Compass sensor not detected. Showing calculated angle.',
+                          _locationPermissionDenied
+                              ? 'Location permission is needed for compass heading.'
+                              : 'Compass sensor not detected. Showing calculated angle.',
                         ),
                         style: TextStyle(color: Colors.amber, fontSize: 11),
                       ),
@@ -338,7 +435,7 @@ class _QiblaScreenState extends State<QiblaScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '${context.tr('Heading:')} ${UiHelpers.localizeDigits(currentHeading.toStringAsFixed(1), arabic: Localizations.localeOf(context).languageCode == 'ar')}°',
+                      '${context.tr('Heading:')} ${UiHelpers.localizeDigits(currentHeading.toStringAsFixed(1), arabic: Localizations.localeOf(context).languageCode == 'ar')}°${_headingAccuracy == null ? '' : ' ±${_headingAccuracy!.toStringAsFixed(0)}°'}',
                       style: const TextStyle(
                         color: ColorsManager.textMuted,
                         fontSize: 11,
@@ -354,6 +451,19 @@ class _QiblaScreenState extends State<QiblaScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 8),
+              if (_deviceHeading != null &&
+                  (_headingAccuracy == null || _headingAccuracy! > 20))
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    context.tr(
+                      'Compass accuracy is low. Move away from metal or magnets and move the phone in a figure eight.',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.amber, fontSize: 12),
+                  ),
+                ),
               const SizedBox(height: 16),
             ],
           ),
