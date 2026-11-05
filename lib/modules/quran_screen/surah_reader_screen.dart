@@ -271,6 +271,246 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
     }
   }
 
+  Future<void> _showAyahDetails(QuranAyah ayah) async {
+    var tafseerId =
+        (HiveManager.getMeta('selected_tafseer_id', defaultValue: 1) as num)
+            .toInt();
+    late Future<List<TafseerType>> typesFuture = TafseerApiService.getTypes();
+    late Future<AyahTafseer> tafseerFuture = TafseerApiService.getAyahTafseer(
+      tafseerId,
+      widget.surah.traditionalOrder,
+      ayah.ayah,
+    );
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * .82,
+          ),
+          padding: EdgeInsets.fromLTRB(
+            22,
+            14,
+            22,
+            24 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: const BoxDecoration(
+            color: Color(0xFF242422),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                '${widget.surah.arabicName} • ${context.tr('Ayah')} ${UiHelpers.formatDigits(ayah.ayah, arabic: Localizations.localeOf(context).languageCode == 'ar')}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: ColorsManager.primaryGold,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        ayah.arabic,
+                        textDirection: TextDirection.rtl,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: ColorsManager.textPrimary,
+                          fontSize: 27,
+                          height: 1.9,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Center(
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            await _playVerse(ayah);
+                            if (sheetContext.mounted) setSheetState(() {});
+                          },
+                          icon: Icon(
+                            _currentlyPlayingKey == 'ayah_${ayah.ayah}' &&
+                                    _isPlaying
+                                ? Icons.pause
+                                : Icons.play_arrow,
+                          ),
+                          label: Text(
+                            context.tr(
+                              _currentlyPlayingKey == 'ayah_${ayah.ayah}' &&
+                                      _isPlaying
+                                  ? 'Pause Ayah'
+                                  : 'Play Ayah',
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: ColorsManager.primaryGoldDark,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              context.tr('Tafseer'),
+                              style: const TextStyle(
+                                color: ColorsManager.primaryGoldLight,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          FutureBuilder<List<TafseerType>>(
+                            future: typesFuture,
+                            builder: (context, snapshot) {
+                              if (snapshot.hasError)
+                                return IconButton(
+                                  tooltip: context.tr('Retry'),
+                                  onPressed: () => setSheetState(() {
+                                    typesFuture = TafseerApiService.getTypes();
+                                  }),
+                                  icon: const Icon(
+                                    Icons.refresh,
+                                    color: ColorsManager.primaryGold,
+                                  ),
+                                );
+                              if (!snapshot.hasData)
+                                return const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: ColorsManager.primaryGold,
+                                  ),
+                                );
+                              final types = snapshot.data!;
+                              if (!types.any((type) => type.id == tafseerId) &&
+                                  types.isNotEmpty)
+                                tafseerId = types.first.id;
+                              return DropdownButton<int>(
+                                value: types.any((type) => type.id == tafseerId)
+                                    ? tafseerId
+                                    : null,
+                                dropdownColor: const Color(0xFF30302D),
+                                underline: const SizedBox.shrink(),
+                                style: const TextStyle(
+                                  color: ColorsManager.textPrimary,
+                                  fontSize: 13,
+                                ),
+                                items: types
+                                    .map(
+                                      (type) => DropdownMenuItem(
+                                        value: type.id,
+                                        child: Text(
+                                          type.name,
+                                          textDirection: TextDirection.rtl,
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) async {
+                                  if (value == null) return;
+                                  setSheetState(() {
+                                    tafseerId = value;
+                                    tafseerFuture =
+                                        TafseerApiService.getAyahTafseer(
+                                          value,
+                                          widget.surah.traditionalOrder,
+                                          ayah.ayah,
+                                        );
+                                  });
+                                  await HiveManager.addUpdateMetaData(
+                                    'selected_tafseer_id',
+                                    value,
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      FutureBuilder<AyahTafseer>(
+                        future: tafseerFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting)
+                            return const Padding(
+                              padding: EdgeInsets.all(22),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: ColorsManager.primaryGold,
+                                ),
+                              ),
+                            );
+                          if (snapshot.hasError)
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    context.tr('Could not load tafseer'),
+                                    style: const TextStyle(
+                                      color: ColorsManager.textMuted,
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () => setSheetState(() {
+                                    tafseerFuture =
+                                        TafseerApiService.getAyahTafseer(
+                                          tafseerId,
+                                          widget.surah.traditionalOrder,
+                                          ayah.ayah,
+                                        );
+                                  }),
+                                  child: Text(context.tr('Retry')),
+                                ),
+                              ],
+                            );
+                          return Text(
+                            snapshot.data?.text ?? '',
+                            textDirection: TextDirection.rtl,
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                              color: ColorsManager.textSecondary,
+                              fontSize: 16,
+                              height: 1.8,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showReciterSelector() {
     showModalBottomSheet(
       context: context,
@@ -759,158 +999,164 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
     final isThisAyahLoading =
         _currentlyPlayingKey == 'ayah_${ayah.ayah}' && _isLoadingAudio;
 
-    return Container(
-      padding: isThisAyahPlaying ? const EdgeInsets.all(12) : EdgeInsets.zero,
-      decoration: isThisAyahPlaying
-          ? BoxDecoration(
-              color: ColorsManager.primaryGold.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: ColorsManager.primaryGold.withValues(alpha: 0.3),
-              ),
-            )
-          : null,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Ayah Header Row: Number Badge, Key, and Verse Play Audio Button
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isThisAyahPlaying
-                          ? ColorsManager.primaryGold
-                          : const Color(0xFF282826),
-                      border: Border.all(
-                        color: ColorsManager.primaryGold.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '${ayah.ayah}',
-                      style: TextStyle(
+    return InkWell(
+      onTap: () => _showAyahDetails(ayah),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: isThisAyahPlaying ? const EdgeInsets.all(12) : EdgeInsets.zero,
+        decoration: isThisAyahPlaying
+            ? BoxDecoration(
+                color: ColorsManager.primaryGold.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: ColorsManager.primaryGold.withValues(alpha: 0.3),
+                ),
+              )
+            : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Ayah Header Row: Number Badge, Key, and Verse Play Audio Button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
                         color: isThisAyahPlaying
-                            ? const Color(0xFF191A19)
-                            : ColorsManager.primaryGold,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    ayah.verseKey,
-                    style: const TextStyle(
-                      color: ColorsManager.textMuted,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-
-              // Verse Audio Play Button
-              InkWell(
-                onTap: () => _playVerse(ayah),
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isThisAyahPlaying
-                        ? ColorsManager.primaryGold
-                        : const Color(0xFF282826),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: ColorsManager.primaryGold.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isThisAyahLoading)
-                        const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: ColorsManager.primaryGold,
+                            ? ColorsManager.primaryGold
+                            : const Color(0xFF282826),
+                        border: Border.all(
+                          color: ColorsManager.primaryGold.withValues(
+                            alpha: 0.5,
                           ),
-                        )
-                      else
-                        Icon(
-                          isThisAyahPlaying ? Icons.pause : Icons.play_arrow,
-                          color: isThisAyahPlaying
-                              ? const Color(0xFF191A19)
-                              : ColorsManager.primaryGold,
-                          size: 16,
                         ),
-                      const SizedBox(width: 4),
-                      Text(
-                        context.tr(isThisAyahPlaying ? 'Playing' : 'Audio'),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '${ayah.ayah}',
                         style: TextStyle(
                           color: isThisAyahPlaying
                               ? const Color(0xFF191A19)
                               : ColorsManager.primaryGold,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ],
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      ayah.verseKey,
+                      style: const TextStyle(
+                        color: ColorsManager.textMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Verse Audio Play Button
+                InkWell(
+                  onTap: () => _playVerse(ayah),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isThisAyahPlaying
+                          ? ColorsManager.primaryGold
+                          : const Color(0xFF282826),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: ColorsManager.primaryGold.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isThisAyahLoading)
+                          const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: ColorsManager.primaryGold,
+                            ),
+                          )
+                        else
+                          Icon(
+                            isThisAyahPlaying ? Icons.pause : Icons.play_arrow,
+                            color: isThisAyahPlaying
+                                ? const Color(0xFF191A19)
+                                : ColorsManager.primaryGold,
+                            size: 16,
+                          ),
+                        const SizedBox(width: 4),
+                        Text(
+                          context.tr(isThisAyahPlaying ? 'Playing' : 'Audio'),
+                          style: TextStyle(
+                            color: isThisAyahPlaying
+                                ? const Color(0xFF191A19)
+                                : ColorsManager.primaryGold,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Arabic Verse Text
+            Text(
+              ayah.arabic,
+              textDirection: TextDirection.rtl,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: ColorsManager.textPrimary,
+                fontSize: 24,
+                height: 1.8,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+
+            // Transliteration
+            if (_showTransliteration && ayah.transliteration.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                ayah.transliteration,
+                style: TextStyle(
+                  color: ColorsManager.primaryGoldLight.withValues(alpha: 0.8),
+                  fontSize: 13,
+                  fontStyle: FontStyle.italic,
+                  height: 1.4,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
 
-          // Arabic Verse Text
-          Text(
-            ayah.arabic,
-            textDirection: TextDirection.rtl,
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-              color: ColorsManager.textPrimary,
-              fontSize: 24,
-              height: 1.8,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-
-          // Transliteration
-          if (_showTransliteration && ayah.transliteration.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              ayah.transliteration,
-              style: TextStyle(
-                color: ColorsManager.primaryGoldLight.withValues(alpha: 0.8),
-                fontSize: 13,
-                fontStyle: FontStyle.italic,
-                height: 1.4,
+            // English Translation
+            if (_showTranslation && ayah.translation.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                ayah.translation,
+                style: const TextStyle(
+                  color: ColorsManager.textSecondary,
+                  fontSize: 14,
+                  height: 1.45,
+                ),
               ),
-            ),
+            ],
           ],
-
-          // English Translation
-          if (_showTranslation && ayah.translation.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              ayah.translation,
-              style: const TextStyle(
-                color: ColorsManager.textSecondary,
-                fontSize: 14,
-                height: 1.45,
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
