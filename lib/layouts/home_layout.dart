@@ -1,13 +1,27 @@
 import 'package:azan/layouts/bloc/home_layout_cubit.dart';
 import 'package:azan/layouts/bloc/home_layout_states.dart';
+import 'package:azan/services/app_update_service.dart';
 import 'package:azan/utils/helpers/colors_manager.dart';
 import 'package:azan/utils/helpers/app_language.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-class HomeLayout extends StatelessWidget {
+class HomeLayout extends StatefulWidget {
   const HomeLayout({super.key});
+
+  @override
+  State<HomeLayout> createState() => _HomeLayoutState();
+}
+
+class _HomeLayoutState extends State<HomeLayout> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AppUpdateService.checkAndPrompt(context);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

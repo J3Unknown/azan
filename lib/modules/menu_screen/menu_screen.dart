@@ -3,6 +3,7 @@ import 'package:azan/modules/settings_screen/settings_screen.dart';
 import 'package:azan/utils/helpers/colors_manager.dart';
 import 'package:azan/utils/helpers/app_language.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
@@ -12,40 +13,82 @@ class MenuScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF191A19),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(24),
+        child: Column(
           children: [
-            Text(
-              context.tr('Menu'),
-              style: TextStyle(
-                color: ColorsManager.textPrimary,
-                fontSize: 25,
-                fontFamily: 'serif',
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  Text(
+                    context.tr('Menu'),
+                    style: TextStyle(
+                      color: ColorsManager.textPrimary,
+                      fontSize: 25,
+                      fontFamily: 'serif',
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _MenuTile(
+                    icon: Icons.menu_book_rounded,
+                    title: context.tr('Sahih al-Bukhari'),
+                    subtitle: context.tr(
+                      'Browse chapters and search all hadiths',
+                    ),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const BukhariScreen()),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _MenuTile(
+                    icon: Icons.settings_rounded,
+                    title: context.tr('Settings'),
+                    subtitle: context.tr('Prayer location and app preferences'),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const SettingsScreen(showBackButton: true),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            _MenuTile(
-              icon: Icons.menu_book_rounded,
-              title: context.tr('Sahih al-Bukhari'),
-              subtitle: context.tr('Browse chapters and search all hadiths'),
-              onTap: () => Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const BukhariScreen())),
-            ),
-            const SizedBox(height: 12),
-            _MenuTile(
-              icon: Icons.settings_rounded,
-              title: context.tr('Settings'),
-              subtitle: context.tr('Prayer location and app preferences'),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const SettingsScreen(showBackButton: true),
-                ),
-              ),
-            ),
+            const _AppVersionFooter(),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AppVersionFooter extends StatefulWidget {
+  const _AppVersionFooter();
+
+  @override
+  State<_AppVersionFooter> createState() => _AppVersionFooterState();
+}
+
+class _AppVersionFooterState extends State<_AppVersionFooter> {
+  late final Future<PackageInfo> _packageInfo = PackageInfo.fromPlatform();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: _packageInfo,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox(height: 12);
+        final info = snapshot.data!;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12, top: 4),
+          child: Text(
+            '${context.tr('Version')} ${info.version} (${info.buildNumber})',
+            style: const TextStyle(
+              color: ColorsManager.textMuted,
+              fontSize: 12,
+            ),
+          ),
+        );
+      },
     );
   }
 }
