@@ -9,9 +9,14 @@ class CommunityService {
     defaultValue: String.fromEnvironment('SUPABSE_PUBLISH_KEY'),
   );
   static bool configured = false;
+  static String? configurationError;
   static SupabaseClient get client => Supabase.instance.client;
   static Future<void> initialize() async {
-    if (url.isEmpty || key.isEmpty) return;
+    if (url.isEmpty || key.isEmpty) {
+      configurationError = 'Supabase URL or publishable key is missing.';
+      debugPrint('Online worship unavailable: $configurationError');
+      return;
+    }
     try {
       await Supabase.initialize(
         url: url,
@@ -22,10 +27,10 @@ class CommunityService {
         ),
       );
       configured = true;
-    } catch (_) {
-      debugPrint(
-        'Online features could not initialize. Offline features remain available.',
-      );
+    } catch (error, stackTrace) {
+      configurationError = error.toString();
+      debugPrint('Online features could not initialize: $error');
+      debugPrintStack(stackTrace: stackTrace);
     }
   }
 

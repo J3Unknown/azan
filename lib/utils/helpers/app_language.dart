@@ -173,6 +173,8 @@ const Map<String, String> _arabicTranslations = {
       'سجل الدخول للانضمام للغرف وتشجيع أصدقائك.',
   'Online worship is being prepared. You can continue using all offline features.':
       'المشاركة عبر الإنترنت قيد التجهيز. يمكنك مواصلة استخدام جميع المزايا دون اتصال.',
+  'Online worship could not start: {error}':
+      'تعذر تشغيل المشاركة عبر الإنترنت: {error}',
   'Profile': 'الملف الشخصي',
   'Rooms': 'الغرف',
   'Weekly reports': 'التقارير الأسبوعية',

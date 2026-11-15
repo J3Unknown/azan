@@ -21,16 +21,20 @@ an email draft to `taemaomar65@gmail.com` without requiring an account.
 4. Under **Authentication → Sign In / Providers → Email**, enable email signup,
    turn **Confirm email OFF**, and set minimum password length to at least 8.
 5. No SMTP service, email templates or Auth callback URLs are needed.
-6. Keep the public connection values in the ignored root `.env` file:
+6. Keep the public connection values in the ignored root `.env` JSON file:
 
    ```dotenv
-   SUPABASE_URL=https://iuuugxspcrivejcvpnoa.supabase.co
-   SUPABASE_PUBLISH_KEY=YOUR_PUBLISHABLE_KEY
+   {
+     "SUPABASE_URL": "https://iuuugxspcrivejcvpnoa.supabase.co",
+     "SUPABASE_PUBLISH_KEY": "YOUR_PUBLISHABLE_KEY"
+   }
    ```
 
    The spelling `SUPABSE_PUBLISH_KEY` is also accepted; `SUPABASE_PUBLISH_KEY`
-   takes precedence if both are defined. Run/build with Flutter's native
-   environment-file option (the `.env` is not bundled as an asset):
+   takes precedence if both are defined. `--dart-define-from-file` requires JSON
+   key/value syntax; `KEY=value` dotenv syntax will leave online features disabled.
+   Run/build with Flutter's native environment-file option (the `.env` is not
+   bundled as an asset):
 
    ```sh
    flutter run --dart-define-from-file=.env

@@ -139,9 +139,16 @@ class _CommunityScreenState extends State<CommunityScreen>
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  context.tr(
-                    'Online worship is being prepared. You can continue using all offline features.',
-                  ),
+                  CommunityService.configurationError == null
+                      ? context.tr(
+                          'Online worship is being prepared. You can continue using all offline features.',
+                        )
+                      : context
+                            .tr('Online worship could not start: {error}')
+                            .replaceFirst(
+                              '{error}',
+                              CommunityService.configurationError!,
+                            ),
                 ),
               ),
             )
