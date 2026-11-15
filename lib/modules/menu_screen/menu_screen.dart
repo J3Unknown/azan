@@ -3,6 +3,8 @@ import 'package:azan/modules/settings_screen/settings_screen.dart';
 import 'package:azan/utils/helpers/colors_manager.dart';
 import 'package:azan/utils/helpers/app_language.dart';
 import 'package:flutter/material.dart';
+import 'package:azan/modules/community/community_screen.dart';
+import 'package:azan/modules/community/profile_screen.dart';
 
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
@@ -24,6 +26,26 @@ class MenuScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
+            _MenuTile(
+              icon: Icons.groups_outlined,
+              title: context.tr('Worship together'),
+              subtitle: context.tr(
+                'Rooms, private challenges and weekly reports',
+              ),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const CommunityScreen()),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _MenuTile(
+              icon: Icons.mail_outline,
+              title: context.tr('Contact us'),
+              subtitle: 'taemaomar65@gmail.com',
+              onTap: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const ContactScreen())),
+            ),
+            const SizedBox(height: 12),
             _MenuTile(
               icon: Icons.menu_book_rounded,
               title: context.tr('Sahih al-Bukhari'),

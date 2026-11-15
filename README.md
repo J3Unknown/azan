@@ -11,7 +11,7 @@ Use the Flutter SDK version required by `pubspec.yaml` (Dart 3.11.1 or newer).
 
 ```sh
 flutter pub get
-flutter build appbundle --release
+flutter build appbundle --release --dart-define-from-file=.env
 ```
 
 Before building a production bundle, set a permanent, unique Android
@@ -22,3 +22,12 @@ passwords private and backed up. Never commit them.
 
 See the [privacy policy](docs/privacy-policy.md) for information about data
 handled by the app.
+
+Optional Supabase accounts, worship rooms, private challenges, weekly reports
+and profile photos are documented in [Supabase setup](docs/supabase-setup.md).
+The existing app works without online account configuration.
+
+To use the connected Supabase project, run
+`flutter run --dart-define-from-file=.env`, or select **Azan (.env)** in VS Code.
+The ignored `.env` contains `SUPABASE_URL` and `SUPABASE_PUBLISH_KEY` (the spelling
+`SUPABSE_PUBLISH_KEY` is also accepted).
