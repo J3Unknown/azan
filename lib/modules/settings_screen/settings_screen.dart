@@ -23,6 +23,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     final cachedCity = HiveManager.getMeta('city');
     if (cachedCity != null) _city = cachedCity.toString();
+
+    // Restore persisted notification preferences
+    _athanSound =
+        HiveManager.getMeta('athan_sound_enabled', defaultValue: true) as bool;
+    _vibration =
+        HiveManager.getMeta('vibration_enabled', defaultValue: true) as bool;
   }
 
   @override
@@ -50,6 +56,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
+              ],
+
+              // Warning when exact alarm permission is denied
+              if (HiveManager.getMeta('exact_alarm_granted',
+                      defaultValue: true) ==
+                  false) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.orange.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded,
+                          color: Colors.orange, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          context.tr(
+                            'Exact alarm permission is denied. Prayer notifications may be delayed. Please enable it in your device settings.',
+                          ),
+                          style: const TextStyle(
+                            color: Colors.orange,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
               ],
 
               Container(
@@ -167,7 +209,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Switch(
                           value: _athanSound,
                           activeThumbColor: ColorsManager.primaryGold,
-                          onChanged: (v) => setState(() => _athanSound = v),
+                          onChanged: (v) async {
+                            setState(() => _athanSound = v);
+                            await HiveManager.addUpdateMetaData(
+                              'athan_sound_enabled',
+                              v,
+                            );
+                            // Re-schedule all enabled prayers with updated
+                            // sound preference so channels are recreated.
+                            for (final prayer in HiveManager.getPrayer()) {
+                              await scheduleTask(prayer);
+                            }
+                          },
                         ),
                       ],
                     ),
@@ -185,7 +238,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Switch(
                           value: _vibration,
                           activeThumbColor: ColorsManager.primaryGold,
-                          onChanged: (v) => setState(() => _vibration = v),
+                          onChanged: (v) async {
+                            setState(() => _vibration = v);
+                            await HiveManager.addUpdateMetaData(
+                              'vibration_enabled',
+                              v,
+                            );
+                          },
                         ),
                       ],
                     ),

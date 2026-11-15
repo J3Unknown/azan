@@ -96,17 +96,34 @@ Future<void> scheduleTask(PrayerModel model) async {
     nextPrayerTime = nextPrayerTime.add(const Duration(days: 1));
   }
 
+  // Read the user's sound and vibration preferences from Hive.
+  final bool athanSoundEnabled =
+      HiveManager.getMeta('athan_sound_enabled', defaultValue: true) as bool;
+  final bool vibrationEnabled =
+      HiveManager.getMeta('vibration_enabled', defaultValue: true) as bool;
+
   final bool isFajr =
       model.prayerName.toLowerCase() == 'fajr' || model.prayerID == 1;
+
+  // When the user disables adhan sound, use a dedicated silent channel
+  // so the notification still appears but without audio.
   final String soundName = isFajr ? 'fajr' : 'new_others';
-  // Version channel IDs so Android applies the current custom sound even if an
-  // older channel with stale sound settings was already created on the device.
-  final String channelId = isFajr
-      ? 'adhan-fajr-channel-v3'
-      : 'adhan-other-new-others-v1';
-  final String channelName = isFajr
-      ? 'Fajr Prayer Adhan'
-      : 'Other Prayers Adhan';
+  final String channelId;
+  final String channelName;
+  final bool playSound;
+  final RawResourceAndroidNotificationSound? sound;
+
+  if (athanSoundEnabled) {
+    channelId = isFajr ? 'adhan-fajr-channel-v5' : 'adhan-other-new-others-v2';
+    channelName = isFajr ? 'Fajr Prayer Adhan' : 'Other Prayers Adhan';
+    playSound = true;
+    sound = RawResourceAndroidNotificationSound(soundName);
+  } else {
+    channelId = 'adhan-silent-channel-v1';
+    channelName = 'Prayer Time (Silent)';
+    playSound = false;
+    sound = null;
+  }
 
   final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
     channelId,
@@ -116,9 +133,12 @@ Future<void> scheduleTask(PrayerModel model) async {
     importance: Importance.max,
     priority: Priority.max,
     audioAttributesUsage: AudioAttributesUsage.alarm,
-    sound: RawResourceAndroidNotificationSound(soundName),
-    playSound: true,
+    sound: sound,
+    playSound: playSound,
+    enableVibration: vibrationEnabled,
+    visibility: NotificationVisibility.public,
   );
+  final scheduledDate = tz.TZDateTime.from(nextPrayerTime, tz.local);
 
   try {
     final androidNotifications = flutterLocalNotificationsPlugin
@@ -127,22 +147,44 @@ Future<void> scheduleTask(PrayerModel model) async {
         >();
     final canScheduleExact = await androidNotifications
         ?.canScheduleExactNotifications();
+
+    try {
+      const oldChannelIds = [
+        'adhan-fajr-channel',
+        'adhan-fajr-channel-v1',
+        'adhan-fajr-channel-v2',
+        'adhan-fajr-channel-v3',
+        'adhan-fajr-channel-v4',
+        'adhan-other-channel',
+        'adhan-other-channel-v2',
+        'adhan-other-channel-v3',
+        'adhan-other-channel-v4',
+        'adhan-other-new-others-v1',
+      ];
+      for (final old in oldChannelIds) {
+        await androidNotifications?.deleteNotificationChannel(channelId: old);
+      }
+    } catch (_) {}
+
     await androidNotifications?.createNotificationChannel(
       AndroidNotificationChannel(
         channelId,
         channelName,
         description: 'Play adhan at exact prayer time',
         importance: Importance.max,
-        playSound: true,
-        sound: RawResourceAndroidNotificationSound(soundName),
+        playSound: playSound,
+        sound: sound,
         audioAttributesUsage: AudioAttributesUsage.alarm,
+        enableVibration: vibrationEnabled,
       ),
     );
-    final scheduledDate = tz.TZDateTime.from(nextPrayerTime, tz.local);
     final notificationDetails = NotificationDetails(android: androidDetails);
     final scheduleMode = canScheduleExact == false
         ? AndroidScheduleMode.inexactAllowWhileIdle
         : AndroidScheduleMode.exactAllowWhileIdle;
+
+    // Cancel existing notification for this prayer ID to prevent stale alarm / channel conflicts
+    await cancelNotification(model.prayerID);
 
     try {
       await flutterLocalNotificationsPlugin.zonedSchedule(
@@ -172,6 +214,52 @@ Future<void> scheduleTask(PrayerModel model) async {
       'Failed to schedule prayer ${model.prayerName} '
       'for $nextPrayerTime: $e',
     );
+
+    // A bad or unavailable custom Fajr sound must not suppress the prayer
+    // notification itself. Retry on a dedicated silent channel.
+    if (isFajr) {
+      const fallbackChannelId = 'adhan-fajr-silent-fallback-v1';
+      try {
+        final androidNotifications = flutterLocalNotificationsPlugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
+        const fallbackChannelName = 'Fajr Prayer (Silent fallback)';
+        final fallbackDetails = AndroidNotificationDetails(
+          fallbackChannelId,
+          fallbackChannelName,
+          channelDescription: 'Fajr prayer notification without custom audio',
+          category: AndroidNotificationCategory.alarm,
+          importance: Importance.max,
+          priority: Priority.max,
+          playSound: false,
+          enableVibration: vibrationEnabled,
+          visibility: NotificationVisibility.public,
+        );
+        await androidNotifications?.createNotificationChannel(
+          AndroidNotificationChannel(
+            fallbackChannelId,
+            fallbackChannelName,
+            description: 'Fajr prayer notification without custom audio',
+            importance: Importance.max,
+            playSound: false,
+            enableVibration: vibrationEnabled,
+          ),
+        );
+        await cancelNotification(model.prayerID);
+        await flutterLocalNotificationsPlugin.zonedSchedule(
+          id: model.prayerID,
+          title: 'Prayer Time',
+          body: 'It\'s time for ${model.prayerName} prayer',
+          scheduledDate: scheduledDate,
+          notificationDetails: NotificationDetails(android: fallbackDetails),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          matchDateTimeComponents: DateTimeComponents.time,
+        );
+      } catch (fallbackError) {
+        log('Failed to schedule silent Fajr fallback: $fallbackError');
+      }
+    }
   }
 }
 
@@ -185,8 +273,9 @@ Future<void> cancelNotification(int id) async {
 
 /// Schedule reminder notification
 Future<void> scheduleReminderNotification(ReminderModel reminder) async {
+  final notificationId = reminder.id.hashCode.abs();
   if (!reminder.isActive) {
-    await cancelNotification(reminder.id.hashCode);
+    await cancelNotification(notificationId);
     return;
   }
 
@@ -216,24 +305,66 @@ Future<void> scheduleReminderNotification(ReminderModel reminder) async {
     }
   }
 
-  const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+  final bool vibrationEnabled =
+      HiveManager.getMeta('vibration_enabled', defaultValue: true) as bool;
+
+  final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
     'reminder-channel-id',
     'Daily Reminders',
     channelDescription: 'Reminders for daily dhikr, Quran and sunnah',
     importance: Importance.high,
     priority: Priority.high,
     playSound: true,
+    enableVibration: vibrationEnabled,
   );
 
   try {
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      id: reminder.id.hashCode,
-      title: reminder.category,
-      body: reminder.title,
-      scheduledDate: tz.TZDateTime.from(scheduledDateTime, tz.local),
-      notificationDetails: const NotificationDetails(android: androidDetails),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    final androidNotifications = flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    final canScheduleExact = await androidNotifications
+        ?.canScheduleExactNotifications();
+
+    await androidNotifications?.createNotificationChannel(
+      AndroidNotificationChannel(
+        'reminder-channel-id',
+        'Daily Reminders',
+        description: 'Reminders for daily dhikr, Quran and sunnah',
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: vibrationEnabled,
+      ),
     );
+
+    final scheduleMode = canScheduleExact == false
+        ? AndroidScheduleMode.inexactAllowWhileIdle
+        : AndroidScheduleMode.exactAllowWhileIdle;
+
+    final scheduledDate = tz.TZDateTime.from(scheduledDateTime, tz.local);
+    final notificationDetails = NotificationDetails(android: androidDetails);
+
+    try {
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        id: notificationId,
+        title: reminder.category,
+        body: reminder.title,
+        scheduledDate: scheduledDate,
+        notificationDetails: notificationDetails,
+        androidScheduleMode: scheduleMode,
+      );
+    } catch (exactError) {
+      if (scheduleMode != AndroidScheduleMode.exactAllowWhileIdle) rethrow;
+      log('Exact reminder scheduling failed; fallback to inexact: $exactError');
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        id: notificationId,
+        title: reminder.category,
+        body: reminder.title,
+        scheduledDate: scheduledDate,
+        notificationDetails: notificationDetails,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+    }
   } catch (e) {
     log('Failed to schedule reminder notification: $e');
   }

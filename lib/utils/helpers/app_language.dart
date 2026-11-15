@@ -348,6 +348,8 @@ const Map<String, String> _arabicTranslations = {
   'Play Full Surah': 'تشغيل السورة كاملة',
   'Playing Surah': 'تشغيل سورة',
   'Playing Ayah': 'تشغيل الآية',
+  'Tap any verse to view its Tafseer': 'اضغط على أي آية لعرض التفسير',
+  'Tafseer': 'التفسير',
   'Retry': 'إعادة المحاولة',
   'Playing Full Surah': 'تشغيل السورة كاملة',
   'Playing': 'قيد التشغيل',

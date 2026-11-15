@@ -86,7 +86,7 @@ class QuranApiService {
 
     // 2. One-time call from API if not yet in cache
     final url = Uri.parse('$baseUrl/api/quran/surah/$surahNumber');
-    final response = await http.get(url);
+    final response = await http.get(url).timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
       final decoded = jsonDecode(response.body) as Map<String, dynamic>;

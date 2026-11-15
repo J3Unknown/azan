@@ -61,7 +61,15 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
 
   void _restorePlaybackState() {
     final mediaItem = _audioPlayer.sequenceState?.currentSource?.tag;
-    if (mediaItem is! MediaItem) return;
+    if (mediaItem is! MediaItem) {
+      if (_currentlyPlayingKey != null || _isPlaying) {
+        setState(() {
+          _currentlyPlayingKey = null;
+          _isPlaying = false;
+        });
+      }
+      return;
+    }
 
     final id = mediaItem.id;
     final surahId = 'surah_${widget.surah.traditionalOrder}';
@@ -74,7 +82,17 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
       );
       playbackKey = 'ayah_$ayahNumber';
     }
-    if (playbackKey == null) return;
+
+    // If audio is playing for a different Surah, do not show it as playing here
+    if (playbackKey == null) {
+      if (_currentlyPlayingKey != null || _isPlaying) {
+        setState(() {
+          _currentlyPlayingKey = null;
+          _isPlaying = false;
+        });
+      }
+      return;
+    }
 
     final reciter = availableReciters.where(
       (item) => item.name == mediaItem.artist,
@@ -99,26 +117,30 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
     _playerStateSubscription = _audioPlayer.playerStateStream.listen((state) {
       if (!mounted) return;
       _restorePlaybackState();
-      setState(() {
-        _isPlaying = state.playing;
-        if (state.processingState == ProcessingState.completed) {
-          _currentlyPlayingKey = null;
-          _isPlaying = false;
-          _currentPosition = Duration.zero;
-        }
-      });
+      if (_currentlyPlayingKey != null) {
+        setState(() {
+          _isPlaying = state.playing;
+          if (state.processingState == ProcessingState.completed) {
+            _currentlyPlayingKey = null;
+            _isPlaying = false;
+            _currentPosition = Duration.zero;
+          }
+        });
+      }
     });
 
     _positionSubscription = _audioPlayer.positionStream.listen((pos) {
       if (!mounted) return;
-      setState(() {
-        _currentPosition = pos;
-      });
+      if (_currentlyPlayingKey != null) {
+        setState(() {
+          _currentPosition = pos;
+        });
+      }
     });
 
     _durationSubscription = _audioPlayer.durationStream.listen((dur) {
       if (!mounted) return;
-      if (dur != null) {
+      if (dur != null && _currentlyPlayingKey != null) {
         setState(() {
           _totalDuration = dur;
         });
@@ -194,13 +216,19 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
             artist: artist,
           ),
         ),
-      );
+      ).timeout(const Duration(seconds: 20));
       await _audioPlayer.play();
     } catch (e) {
       if (mounted) {
+        final message = e is TimeoutException
+            ? context.tr('Connection timed out. Please check your internet and try again.')
+            : '$playError ${context.tr('Please try another reciter or check your connection.')}';
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('$playError $e')));
+        ).showSnackBar(SnackBar(content: Text(message)));
+        setState(() {
+          _currentlyPlayingKey = null;
+        });
       }
     } finally {
       if (mounted) {
@@ -239,28 +267,55 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
     });
 
     try {
-      final url = _selectedReciter.getAyahAudioUrl(
+      final primaryUrl = _selectedReciter.getAyahAudioUrl(
         widget.surah.traditionalOrder,
         ayah.ayah,
       );
       await _audioPlayer.stop();
-      await _audioPlayer.setAudioSource(
-        AudioSource.uri(
-          Uri.parse(url),
-          tag: MediaItem(
-            id: '${widget.surah.traditionalOrder}_${ayah.ayah}',
-            album: album,
-            title: title,
-            artist: artist,
+      try {
+        await _audioPlayer.setAudioSource(
+          AudioSource.uri(
+            Uri.parse(primaryUrl),
+            tag: MediaItem(
+              id: '${widget.surah.traditionalOrder}_${ayah.ayah}',
+              album: album,
+              title: title,
+              artist: artist,
+            ),
           ),
-        ),
-      );
+        ).timeout(const Duration(seconds: 15));
+      } catch (primaryError) {
+        // Fallback: try ayah.audioUrl if available and different
+        if (ayah.audioUrl != null &&
+            ayah.audioUrl!.isNotEmpty &&
+            ayah.audioUrl != primaryUrl) {
+          await _audioPlayer.setAudioSource(
+            AudioSource.uri(
+              Uri.parse(ayah.audioUrl!),
+              tag: MediaItem(
+                id: '${widget.surah.traditionalOrder}_${ayah.ayah}',
+                album: album,
+                title: title,
+                artist: artist,
+              ),
+            ),
+          ).timeout(const Duration(seconds: 15));
+        } else {
+          rethrow;
+        }
+      }
       await _audioPlayer.play();
     } catch (e) {
       if (mounted) {
+        final message = e is TimeoutException
+            ? context.tr('Connection timed out. Please check your internet and try again.')
+            : '$playError ${context.tr('Please try another reciter or check your connection.')}';
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('$playError $e')));
+        ).showSnackBar(SnackBar(content: Text(message)));
+        setState(() {
+          _currentlyPlayingKey = null;
+        });
       }
     } finally {
       if (mounted) {
@@ -993,6 +1048,38 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
               ),
             ),
           ],
+
+          const SizedBox(height: 14),
+          // Note notifying users that verses are clickable for Tafseer
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: ColorsManager.primaryGold.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.touch_app_outlined,
+                  size: 14,
+                  color: ColorsManager.primaryGold.withValues(alpha: 0.85),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  context.tr('Tap any verse to view its Tafseer'),
+                  style: const TextStyle(
+                    color: ColorsManager.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1059,6 +1146,37 @@ class _SurahReaderScreenState extends State<SurahReaderScreen>
                       style: const TextStyle(
                         color: ColorsManager.textMuted,
                         fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.menu_book_outlined,
+                            size: 11,
+                            color: ColorsManager.primaryGold.withValues(
+                              alpha: 0.7,
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            context.tr('Tafseer'),
+                            style: const TextStyle(
+                              color: ColorsManager.textMuted,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

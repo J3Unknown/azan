@@ -100,7 +100,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
   Future<void> _deleteReminder(ReminderModel reminder) async {
     await HiveManager.deleteReminder(reminder.id);
-    await cancelNotification(reminder.id.hashCode);
+    await cancelNotification(reminder.id.hashCode.abs());
     _loadReminders();
   }
 
@@ -679,7 +679,7 @@ class _AddReminderBottomSheetState extends State<_AddReminderBottomSheet> {
     if (existing == null) {
       await HiveManager.addReminder(reminder);
     } else {
-      await cancelNotification(reminder.id.hashCode);
+      await cancelNotification(reminder.id.hashCode.abs());
       await HiveManager.updateReminder(reminder);
     }
     await scheduleReminderNotification(reminder);

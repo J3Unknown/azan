@@ -27,8 +27,17 @@ void callbackDispatcher() {
 
       await HiveManager.init();
 
-      // Recalculate prayer times every 8 hours
+      // Recalculate prayer times every 8 hours.
+      // setPrayerTimesFromValues / setPrayerTimes already call scheduleTask()
+      // for each prayer, so notifications are re-scheduled here as well.
       await recalculateAndStorePrayerTimes();
+
+      // Re-schedule all prayers to ensure notifications survive app kills,
+      // force-stops, and channel changes that may have occurred while the
+      // main isolate was not running.
+      for (final prayer in HiveManager.getPrayer()) {
+        await scheduleTask(prayer);
+      }
 
       // Check athkar reset if a prayer time has arrived
       await checkAndResetAthkarForPrayerTimes();
