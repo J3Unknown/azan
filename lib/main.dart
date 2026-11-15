@@ -104,55 +104,8 @@ void main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  final messengerKey = GlobalKey<ScaffoldMessengerState>();
-  @override
-  void initState() {
-    super.initState();
-    CommunityService.recoveryRequested.addListener(openRecovery);
-    CommunityService.authNotice.addListener(showAuthNotice);
-    if (CommunityService.recoveryRequested.value) openRecovery();
-    if (CommunityService.authNotice.value != null) showAuthNotice();
-  }
-
-  void showAuthNotice() {
-    final message = CommunityService.authNotice.value;
-    if (message == null) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final messageContext = messengerKey.currentContext;
-      messengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Text(
-            messageContext == null ? message : messageContext.tr(message),
-          ),
-        ),
-      );
-      CommunityService.authNotice.value = null;
-    });
-  }
-
-  void openRecovery() {
-    if (!CommunityService.recoveryRequested.value) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      CommunityService.recoveryRequested.value = false;
-      GoRouterConfig.routes.go('/reset-password');
-    });
-  }
-
-  @override
-  void dispose() {
-    CommunityService.recoveryRequested.removeListener(openRecovery);
-    CommunityService.authNotice.removeListener(showAuthNotice);
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -160,7 +113,6 @@ class _MyAppState extends State<MyApp> {
       valueListenable: AppLanguage.locale,
       builder: (context, locale, _) => MaterialApp.router(
         title: 'Azan',
-        scaffoldMessengerKey: messengerKey,
         debugShowCheckedModeBanner: false,
         locale: locale,
         supportedLocales: const [Locale('en'), Locale('ar')],

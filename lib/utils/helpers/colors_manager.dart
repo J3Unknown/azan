@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 class ColorsManager {
   // Primary gold accent
   static const Color primaryGold = Color(0xFFCFB68E);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color black = Color(0xFF000000);
   static const Color primaryGoldLight = Color(0xFFE8D5B0);
   static const Color primaryGoldDark = Color(0xFFAA9060);
 
@@ -20,7 +22,9 @@ class ColorsManager {
 
   // Status
   static const Color activeGreen = Color(0xFF6B9B7A);
+  static const Color acceptGreen = Color.fromARGB(255, 74, 190, 111);
   static const Color inactiveGrey = Color(0xFF5A5A58);
+  static const Color red = Color.fromARGB(255, 235, 85, 65);
 
   // Glassmorphism
   static const Color glassBackground = Color(0x33FFFFFF);

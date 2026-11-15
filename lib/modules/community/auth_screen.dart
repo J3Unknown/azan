@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:azan/services/community_service.dart';
 import 'package:azan/utils/helpers/app_language.dart';
-import 'package:go_router/go_router.dart';
 
-enum AuthPage { login, signup, forgot, reset }
+enum AuthPage { login, signup }
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key, this.page = AuthPage.login});
+  const AuthScreen({super.key, this.page = AuthPage.login, this.authClient});
   final AuthPage page;
+  final GoTrueClient? authClient;
   @override
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
 class _AuthScreenState extends State<AuthScreen> {
+  GoTrueClient get auth => widget.authClient ?? CommunityService.client.auth;
   final form = GlobalKey<FormState>();
   final email = TextEditingController();
   final password = TextEditingController();
@@ -22,6 +23,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool obscure = true;
   String? message;
   late AuthPage page = widget.page;
+  bool get signup => page == AuthPage.signup;
   @override
   void dispose() {
     email.dispose();
@@ -37,59 +39,39 @@ class _AuthScreenState extends State<AuthScreen> {
       message = null;
     });
     try {
-      final auth = CommunityService.client.auth;
-      switch (page) {
-        case AuthPage.login:
-          await auth.signInWithPassword(
-            email: email.text.trim(),
-            password: password.text,
+      if (signup) {
+        final result = await auth.signUp(
+          email: email.text.trim(),
+          password: password.text,
+          data: {'display_name': name.text.trim()},
+        );
+        if (result.session == null) {
+          debugPrint(
+            'Signup returned no session. Email confirmation must be disabled for this app.',
           );
-          if (mounted) Navigator.pop(context);
-        case AuthPage.signup:
-          final result = await auth.signUp(
-            email: email.text.trim(),
-            password: password.text,
-            data: {'display_name': name.text.trim()},
-            emailRedirectTo: CommunityService.redirect,
-          );
-          if (result.session != null && mounted) {
-            Navigator.pop(context);
-          } else {
-            message = 'Check your email to confirm registration, then log in.';
-          }
-        case AuthPage.forgot:
-          await auth.resetPasswordForEmail(
-            email.text.trim(),
-            redirectTo: CommunityService.redirect,
-          );
-          message = 'If this account exists, a reset link has been sent.';
-        case AuthPage.reset:
-          await auth.updateUser(UserAttributes(password: password.text));
-          if (mounted) context.go('/home');
+          message =
+              'Sign up is temporarily unavailable. Please try again later.';
+          return;
+        }
+        await auth.signOut(scope: SignOutScope.local);
+        if (mounted) {
+          final signupEmail = email.text.trim();
+          form.currentState!.reset();
+          email.text = signupEmail;
+          password.clear();
+          setState(() {
+            page = AuthPage.login;
+            message = 'Account created successfully. Please sign in.';
+          });
+        }
+        return;
+      } else {
+        await auth.signInWithPassword(
+          email: email.text.trim(),
+          password: password.text,
+        );
       }
-    } on AuthException catch (e) {
-      message = e.message;
-    } catch (_) {
-      message = 'Unable to connect. Please try again.';
-    } finally {
-      if (mounted) setState(() => busy = false);
-    }
-  }
-
-  Future<void> resendConfirmation() async {
-    final error = CommunityService.emailError(email.text);
-    if (error != null) {
-      setState(() => message = error);
-      return;
-    }
-    setState(() => busy = true);
-    try {
-      await CommunityService.client.auth.resend(
-        type: OtpType.signup,
-        email: email.text.trim(),
-        emailRedirectTo: CommunityService.redirect,
-      );
-      message = 'Check your email to confirm registration, then log in.';
+      if (mounted) Navigator.pop(context);
     } on AuthException catch (e) {
       message = e.message;
     } catch (_) {
@@ -101,12 +83,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = switch (page) {
-      AuthPage.login => 'Log in',
-      AuthPage.signup => 'Sign up',
-      AuthPage.forgot => 'Forgot password',
-      AuthPage.reset => 'Set new password',
-    };
+    final title = signup ? 'Sign up' : 'Log in';
     return Scaffold(
       appBar: AppBar(title: Text(context.tr(title))),
       body: Center(
@@ -126,50 +103,57 @@ class _AuthScreenState extends State<AuthScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
-                  if (page == AuthPage.signup)
+                  if (signup)
                     TextFormField(
+                      key: const ValueKey('name'),
                       controller: name,
                       maxLength: 50,
                       decoration: InputDecoration(
-                        labelText: context.tr('User name'),
+                        labelText: context.tr('Full name'),
                       ),
                       validator: (v) => (v?.trim().length ?? 0) < 2
                           ? context.tr('Use at least 2 characters')
                           : null,
                     ),
-                  if (page != AuthPage.reset)
-                    TextFormField(
-                      controller: email,
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.email],
-                      autocorrect: false,
-                      decoration: InputDecoration(
-                        labelText: context.tr('Email'),
-                      ),
-                      validator: (v) {
-                        final error = CommunityService.emailError(v);
-                        return error == null ? null : context.tr(error);
-                      },
-                    ),
-                  if (page != AuthPage.forgot)
-                    TextFormField(
-                      controller: password,
-                      obscureText: obscure,
-                      decoration: InputDecoration(
-                        labelText: context.tr('Password'),
-                        suffixIcon: IconButton(
-                          tooltip: context.tr('Show password'),
-                          icon: Icon(
-                            obscure ? Icons.visibility : Icons.visibility_off,
-                          ),
-                          onPressed: () => setState(() => obscure = !obscure),
+                  TextFormField(
+                    key: const ValueKey('email'),
+                    controller: email,
+                    keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [AutofillHints.email],
+                    autocorrect: false,
+                    decoration: InputDecoration(labelText: context.tr('Email')),
+                    validator: (v) {
+                      final error = CommunityService.emailError(v);
+                      return error == null ? null : context.tr(error);
+                    },
+                  ),
+                  TextFormField(
+                    key: const ValueKey('password'),
+                    controller: password,
+                    obscureText: obscure,
+                    autofillHints: [
+                      signup
+                          ? AutofillHints.newPassword
+                          : AutofillHints.password,
+                    ],
+                    decoration: InputDecoration(
+                      labelText: context.tr('Password'),
+                      suffixIcon: IconButton(
+                        tooltip: context.tr('Show password'),
+                        icon: Icon(
+                          obscure ? Icons.visibility : Icons.visibility_off,
                         ),
+                        onPressed: () => setState(() => obscure = !obscure),
                       ),
-                      validator: (v) =>
-                          (v?.length ?? 0) < (page == AuthPage.login ? 1 : 8)
-                          ? context.tr('Use at least 8 characters')
-                          : null,
                     ),
+                    validator: (v) => signup
+                        ? ((v?.length ?? 0) < 8
+                              ? context.tr('Use at least 8 characters')
+                              : null)
+                        : ((v?.isEmpty ?? true)
+                              ? context.tr('Required')
+                              : null),
+                  ),
                   const SizedBox(height: 24),
                   if (message != null)
                     Padding(
@@ -189,43 +173,20 @@ class _AuthScreenState extends State<AuthScreen> {
                           )
                         : Text(context.tr(title)),
                   ),
-                  if (page == AuthPage.login) ...[
+                  if (!signup)
                     TextButton(
                       onPressed: busy
                           ? null
-                          : () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const AuthScreen(page: AuthPage.signup),
-                                ),
-                              );
-                              if (context.mounted &&
-                                  CommunityService.client.auth.currentSession !=
-                                      null) {
-                                Navigator.pop(context);
-                              }
-                            },
+                          : () => setState(() {
+                              final loginEmail = email.text.trim();
+                              form.currentState!.reset();
+                              email.text = loginEmail;
+                              password.clear();
+                              message = null;
+                              page = AuthPage.signup;
+                            }),
                       child: Text(context.tr('Create an account')),
                     ),
-                    TextButton(
-                      onPressed: busy
-                          ? null
-                          : () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const AuthScreen(page: AuthPage.forgot),
-                              ),
-                            ),
-                      child: Text(context.tr('Forgot password')),
-                    ),
-                    TextButton(
-                      onPressed: busy ? null : resendConfirmation,
-                      child: Text(context.tr('Resend confirmation email')),
-                    ),
-                  ],
                 ],
               ),
             ),

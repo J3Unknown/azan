@@ -1,27 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:azan/services/community_service.dart';
 import 'package:azan/utils/helpers/app_language.dart';
 import 'auth_screen.dart';
 import 'profile_screen.dart';
-
-const worshipTasks = [
-  'Fajr',
-  'Dhuhr',
-  'Asr',
-  'Maghrib',
-  'Isha',
-  'Daily Quran',
-  'Daily supplications',
-];
-int taskPoints(String task) => task == 'Daily Quran'
-    ? 2
-    : task == 'Daily supplications'
-    ? 3
-    : 1;
-bool isWeakPoint(int done, int target) => target > 0 && done / target < .75;
+import 'room_detail_screen.dart';
+import 'weekly_report_card.dart';
+import 'community_models.dart';
+export 'community_models.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
@@ -34,9 +21,9 @@ class _CommunityScreenState extends State<CommunityScreen>
   Map<String, dynamic>? data;
   String? error;
   bool busy = false;
-  StreamSubscription<AuthState>? subscription;
-  Timer? refreshTimer;
   bool loading = false;
+  Timer? timer;
+  StreamSubscription<AuthState>? subscription;
   @override
   void initState() {
     super.initState();
@@ -51,7 +38,7 @@ class _CommunityScreenState extends State<CommunityScreen>
         }
       }, onError: (Object _) {});
       load();
-      refreshTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+      timer = Timer.periodic(const Duration(seconds: 45), (_) {
         if (WidgetsBinding.instance.lifecycleState ==
                 AppLifecycleState.resumed &&
             !busy) {
@@ -64,9 +51,16 @@ class _CommunityScreenState extends State<CommunityScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    refreshTimer?.cancel();
+    timer?.cancel();
     subscription?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && CommunityService.configured) {
+      load();
+    }
   }
 
   Future<void> load() async {
@@ -92,15 +86,12 @@ class _CommunityScreenState extends State<CommunityScreen>
     }
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && CommunityService.configured) {
-      load();
-    }
-  }
-
-  Future<void> run(String action, Map<String, dynamic> args) async {
-    if (busy) return;
+  Future<void> roomDialog(String action) async {
+    final args = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => RoomEntryDialog(action: action),
+    );
+    if (args == null || !mounted) return;
     setState(() => busy = true);
     try {
       await CommunityService.action(action, args);
@@ -108,104 +99,29 @@ class _CommunityScreenState extends State<CommunityScreen>
     } on PostgrestException catch (e) {
       if (mounted) notice(e.message);
     } catch (_) {
-      if (mounted) notice(context.tr('Unable to connect. Please try again.'));
+      if (mounted) notice('Unable to connect. Please try again.');
     } finally {
       if (mounted) setState(() => busy = false);
     }
   }
 
-  void notice(String text) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-
-  Future<void> roomDialog(String action) async {
-    final first = TextEditingController();
-    final friend = TextEditingController();
-    final form = GlobalKey<FormState>();
-    final title = action == 'join'
-        ? 'Request to join'
-        : action == 'invite'
-        ? 'Private challenge'
-        : 'Create room';
-    final args = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.tr(title)),
-        content: Form(
-          key: form,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: first,
-                maxLength: action == 'join' ? 8 : 80,
-                keyboardType: action == 'join'
-                    ? TextInputType.number
-                    : TextInputType.text,
-                decoration: InputDecoration(
-                  labelText: context.tr(
-                    action == 'join' ? 'Room reference' : 'Room name',
-                  ),
-                ),
-                validator: (v) => action == 'join'
-                    ? (RegExp(r'^\d{8}$').hasMatch(v?.trim() ?? '')
-                          ? null
-                          : context.tr('Enter the 8 digit reference'))
-                    : ((v?.trim().length ?? 0) < 2
-                          ? context.tr('Use at least 2 characters')
-                          : null),
-              ),
-              if (action == 'invite')
-                TextFormField(
-                  controller: friend,
-                  maxLength: 12,
-                  textCapitalization: TextCapitalization.characters,
-                  decoration: InputDecoration(
-                    labelText: context.tr('Friend code'),
-                  ),
-                  validator: (v) =>
-                      RegExp(r'^[a-fA-F0-9]{12}$').hasMatch(v?.trim() ?? '')
-                      ? null
-                      : context.tr('Enter the 12 character friend code'),
-                ),
-              Text(
-                context.tr(
-                  'Daily: 5 prayers × 1 point, Quran 2, supplications 3.',
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(context.tr('Cancel')),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (form.currentState!.validate()) {
-                Navigator.pop(context, {
-                  action == 'join' ? 'ref' : 'name': first.text.trim(),
-                  'friend_code': friend.text.trim(),
-                });
-              }
-            },
-            child: Text(context.tr('Send')),
-          ),
-        ],
-      ),
+  void notice(String message) => ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text(context.tr(message))));
+  Future<void> profile() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProfileScreen()),
     );
-    // Dispose after the dialog route has finished its closing animation.
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    first.dispose();
-    friend.dispose();
-    if (args != null && mounted) await run(action, args);
+    await load();
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final configured = CommunityService.configured;
     final loggedIn =
-        configured && CommunityService.client.auth.currentUser != null;
+        CommunityService.configured &&
+        CommunityService.client.auth.currentUser != null;
     return Scaffold(
       appBar: AppBar(
         title: Text(context.tr('Worship together')),
@@ -214,18 +130,11 @@ class _CommunityScreenState extends State<CommunityScreen>
             IconButton(
               tooltip: context.tr('Profile'),
               icon: const Icon(Icons.person_outline),
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                );
-                await load();
-                if (mounted) setState(() {});
-              },
+              onPressed: profile,
             ),
         ],
       ),
-      body: !configured
+      body: !CommunityService.configured
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -295,8 +204,8 @@ class _CommunityScreenState extends State<CommunityScreen>
                         RefreshIndicator(
                           onRefresh: load,
                           child: ListView(
-                            padding: const EdgeInsets.all(16),
                             physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.all(16),
                             children: [
                               Text(
                                 context.tr(
@@ -314,7 +223,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                               Wrap(
                                 spacing: 8,
                                 children: [
-                                  for (final entry in {
+                                  for (final e in {
                                     'create': 'Create room',
                                     'join': 'Request to join',
                                     'invite': 'Private challenge',
@@ -322,8 +231,8 @@ class _CommunityScreenState extends State<CommunityScreen>
                                     OutlinedButton(
                                       onPressed: busy
                                           ? null
-                                          : () => roomDialog(entry.key),
-                                      child: Text(context.tr(entry.value)),
+                                          : () => roomDialog(e.key),
+                                      child: Text(context.tr(e.value)),
                                     ),
                                 ],
                               ),
@@ -336,20 +245,20 @@ class _CommunityScreenState extends State<CommunityScreen>
                                     ),
                                   ),
                                 ),
-                              for (final room in data!['rooms'])
-                                roomCard(Map<String, dynamic>.from(room)),
+                              for (final r in data!['rooms'])
+                                roomCard(Map<String, dynamic>.from(r)),
                             ],
                           ),
                         ),
                         RefreshIndicator(
                           onRefresh: load,
                           child: ListView(
-                            padding: const EdgeInsets.all(16),
                             physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.all(16),
                             children: [
                               Text(
                                 context.tr(
-                                  'Monday–Sunday · Cairo time. Reports arrive after each week ends.',
+                                  'Friday–Thursday · Cairo time. Reports arrive after each week ends.',
                                 ),
                               ),
                               if ((data!['reports'] as List).isEmpty)
@@ -361,8 +270,10 @@ class _CommunityScreenState extends State<CommunityScreen>
                                     ),
                                   ),
                                 ),
-                              for (final report in data!['reports'])
-                                reportCard(Map<String, dynamic>.from(report)),
+                              for (final r in data!['reports'])
+                                WeeklyReportCard(
+                                  report: Map<String, dynamic>.from(r),
+                                ),
                             ],
                           ),
                         ),
@@ -376,155 +287,153 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   Widget roomCard(Map<String, dynamic> room) {
-    final accepted = room['status'] == 'accepted';
-    final mine = CommunityService.client.auth.currentUser!.id;
-    final done = room['completed'] as List;
+    final members = (room['members'] as List)
+        .where((m) => m['status'] == 'accepted')
+        .length;
+    final due = (room['tasks'] as List)
+        .where((t) => t['due_today'] == true)
+        .toList();
+    final done = (room['completed'] as List)
+        .where((id) => due.any((t) => taskKey(t) == id))
+        .length;
+    final status = switch (room['status']) {
+      'accepted' =>
+        '$members ${context.tr('members')} · $done/${due.length} ${context.tr('tasks completed')}',
+      'invited' => context.tr('Invitation pending'),
+      _ => context.tr('Join request pending'),
+    };
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(room['name'], style: Theme.of(context).textTheme.titleLarge),
-            if (!room['private'])
-              Row(
-                children: [
-                  Text('${context.tr('Room reference')}: ${room['ref']}'),
-                  IconButton(
-                    tooltip: context.tr('Copy'),
-                    onPressed: () async {
-                      await Clipboard.setData(ClipboardData(text: room['ref']));
-                      if (mounted) notice(context.tr('Copied'));
-                    },
-                    icon: const Icon(Icons.copy, size: 18),
-                  ),
-                ],
-              ),
-            if (room['status'] == 'pending')
-              Text(
-                context.tr(
-                  'Waiting for the room owner to approve your request.',
-                ),
-              ),
-            if (room['status'] == 'invited') ...[
-              Text(context.tr('You have been invited to a private challenge.')),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final action in ['accept', 'decline'])
-                    TextButton(
-                      onPressed: busy
-                          ? null
-                          : () => run(action, {'room_id': room['id']}),
-                      child: Text(
-                        context.tr(action == 'accept' ? 'Accept' : 'Decline'),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-            if (accepted) ...[
-              Text(
-                '${context.tr('Today')}: ${data!['today']} · ${done.fold<int>(0, (sum, task) => sum + taskPoints(task))}/10 ${context.tr('points')}',
-              ),
-              for (final task in worshipTasks)
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(context.tr(task)),
-                  subtitle: Text('${taskPoints(task)} ${context.tr('points')}'),
-                  value: done.contains(task),
-                  onChanged: busy || done.contains(task)
-                      ? null
-                      : (_) => run('complete', {
-                          'room_id': room['id'],
-                          'task': task,
-                          'day': data!['today'],
-                        }),
-                ),
-              const Divider(),
-              for (final member in room['members'])
-                if (member['status'] == 'accepted')
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
-                    child: Text(
-                      '${member['name']} ${member['user_id'] == mine ? '(${context.tr('You')})' : ''}',
-                    ),
-                  ),
-              if (room['owner_id'] == mine)
-                for (final member in room['members'])
-                  if (member['status'] == 'pending')
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(member['name']),
-                      subtitle: Text(context.tr('Join request')),
-                      trailing: Wrap(
-                        children: [
-                          IconButton(
-                            tooltip: context.tr('Accept'),
-                            onPressed: busy
-                                ? null
-                                : () => run('accept', {
-                                    'room_id': room['id'],
-                                    'user_id': member['user_id'],
-                                  }),
-                            icon: const Icon(Icons.check),
-                          ),
-                          IconButton(
-                            tooltip: context.tr('Decline'),
-                            onPressed: busy
-                                ? null
-                                : () => run('decline', {
-                                    'room_id': room['id'],
-                                    'user_id': member['user_id'],
-                                  }),
-                            icon: const Icon(Icons.close),
-                          ),
-                        ],
-                      ),
-                    ),
-            ],
-          ],
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: Icon(
+          room['private'] ? Icons.lock_outline : Icons.groups_outlined,
         ),
+        title: Text(room['name']),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(status),
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  RoomDetailScreen(initialRoom: room, today: data!['today']),
+            ),
+          );
+          await load();
+        },
       ),
     );
   }
+}
 
-  Widget reportCard(Map<String, dynamic> report) {
-    final summary = report['summary'];
-    return Card(
-      child: ExpansionTile(
-        title: Text(summary['room_name']),
-        subtitle: Text('${context.tr('Week of')} ${report['week']}'),
-        children: [
-          for (final score in summary['scores'])
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${score['name']} · ${score['points']} ${context.tr('points')}',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  for (final task in score['tasks'])
-                    Text(
-                      '${context.tr(task['task'])}: ${task['done']}/${task['target']}${isWeakPoint(task['done'], task['target']) ? ' · ${context.tr('Area to improve')}' : ''}',
-                    ),
-                  const SizedBox(height: 8),
-                  Text(
-                    context.tr(
-                      (score['tasks'] as List).any(
-                            (t) => isWeakPoint(t['done'], t['target']),
-                          )
-                          ? 'Every new day is another chance. Choose one small habit and keep going.'
-                          : 'Your consistency is growing. Keep encouraging each other!',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
+class RoomEntryDialog extends StatefulWidget {
+  const RoomEntryDialog({super.key, required this.action});
+  final String action;
+  @override
+  State<RoomEntryDialog> createState() => _RoomEntryDialogState();
+}
+
+class _RoomEntryDialogState extends State<RoomEntryDialog> {
+  final first = TextEditingController();
+  final friend = TextEditingController();
+  final form = GlobalKey<FormState>();
+  bool templates = true;
+  @override
+  void dispose() {
+    first.dispose();
+    friend.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final join = widget.action == 'join';
+    final invite = widget.action == 'invite';
+    return AlertDialog(
+      title: Text(
+        context.tr(
+          join
+              ? 'Request to join'
+              : invite
+              ? 'Private challenge'
+              : 'Create room',
+        ),
       ),
+      content: SingleChildScrollView(
+        child: Form(
+          key: form,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: first,
+                maxLength: join ? 8 : 80,
+                keyboardType: join ? TextInputType.number : TextInputType.text,
+                decoration: InputDecoration(
+                  labelText: context.tr(join ? 'Room reference' : 'Room name'),
+                ),
+                validator: (v) => join
+                    ? (RegExp(r'^\d{8}$').hasMatch(v?.trim() ?? '')
+                          ? null
+                          : context.tr('Enter the 8 digit reference'))
+                    : ((v?.trim().length ?? 0) < 2
+                          ? context.tr('Use at least 2 characters')
+                          : null),
+              ),
+              if (invite)
+                TextFormField(
+                  controller: friend,
+                  maxLength: 12,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: InputDecoration(
+                    labelText: context.tr('Friend code'),
+                  ),
+                  validator: (v) =>
+                      RegExp(r'^[a-fA-F0-9]{12}$').hasMatch(v?.trim() ?? '')
+                      ? null
+                      : context.tr('Enter the 12 character friend code'),
+                ),
+              if (!join)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: templates,
+                  onChanged: (v) => setState(() => templates = v!),
+                  title: Text(context.tr('Start with daily worship templates')),
+                  subtitle: Text(
+                    context.tr(
+                      'Add custom tasks, points and schedules in room details.',
+                    ),
+                  ),
+                ),
+              if (invite)
+                Text(
+                  context.tr('Private room · invitations by friend code only'),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(context.tr('Cancel')),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (form.currentState!.validate()) {
+              Navigator.pop(context, {
+                join ? 'ref' : 'name': first.text.trim(),
+                'friend_code': friend.text.trim(),
+                'use_templates': templates,
+              });
+            }
+          },
+          child: Text(context.tr('Send')),
+        ),
+      ],
     );
   }
 }

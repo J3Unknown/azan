@@ -8,27 +8,20 @@ class CommunityService {
     'SUPABASE_PUBLISH_KEY',
     defaultValue: String.fromEnvironment('SUPABSE_PUBLISH_KEY'),
   );
-  static const redirect = 'com.unknown.azan://auth-callback';
   static bool configured = false;
-  static final recoveryRequested = ValueNotifier(false);
-  static final authNotice = ValueNotifier<String?>(null);
   static SupabaseClient get client => Supabase.instance.client;
   static Future<void> initialize() async {
     if (url.isEmpty || key.isEmpty) return;
     try {
-      await Supabase.initialize(url: url, anonKey: key);
-      configured = true;
-      client.auth.onAuthStateChange.listen(
-        (state) {
-          if (state.event == AuthChangeEvent.passwordRecovery) {
-            recoveryRequested.value = true;
-          }
-        },
-        onError: (Object error) {
-          authNotice.value =
-              'This email link is invalid or expired. Request a new one.';
-        },
+      await Supabase.initialize(
+        url: url,
+        anonKey: key,
+        authOptions: const FlutterAuthClientOptions(
+          authFlowType: AuthFlowType.implicit,
+          detectSessionInUri: false,
+        ),
       );
+      configured = true;
     } catch (_) {
       debugPrint(
         'Online features could not initialize. Offline features remain available.',
@@ -52,6 +45,10 @@ class CommunityService {
 
   static Future<Map<String, dynamic>> dashboard() async =>
       Map<String, dynamic>.from(await client.rpc('azan_dashboard'));
+  static Future<void> deleteAccount() async {
+    await client.rpc('azan_delete_account', params: {'confirmation': 'DELETE'});
+  }
+
   static Future<void> action(
     String action, [
     Map<String, dynamic> args = const {},

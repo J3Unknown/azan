@@ -24,8 +24,16 @@ See the [privacy policy](docs/privacy-policy.md) for information about data
 handled by the app.
 
 Optional Supabase accounts, worship rooms, private challenges, weekly reports
-and profile photos are documented in [Supabase setup](docs/supabase-setup.md).
+and profiles are documented in [Supabase setup](docs/supabase-setup.md).
 The existing app works without online account configuration.
+
+Startup release notes are maintained in `lib/data/app_updates.dart`. Edit that
+text list and add matching Arabic translations in
+`lib/utils/helpers/app_language.dart`. Users see the popup once for each changed
+list; dismissal is saved locally and works offline.
+For testing, debug builds currently show it on every startup. Set
+`previewAppUpdatesOnEveryStartup` to `false` in the list file after testing.
+Release builds always use the once-per-changed-list behavior.
 
 To use the connected Supabase project, run
 `flutter run --dart-define-from-file=.env`, or select **Azan (.env)** in VS Code.

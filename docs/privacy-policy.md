@@ -26,16 +26,17 @@ information the app uses and how it is handled.
   them locally on the device.
 - **Optional account:** Online worship features use Supabase to store your
   email, authentication credentials, display name and friend code. The app
-  retains your session on your device. Email confirmation and password reset
-  messages are delivered through the configured email provider.
+  retains your session on your device. Signup and login use your email and
+  password without email verification. The app does not send authentication
+  emails or offer email-based password resets.
 - **Online worship:** Room membership, invitations and join requests, daily
   task completions and weekly reports are stored in Supabase. Accepted room
-  members can see each other's display names and weekly task counts, points
-  and areas to improve. Room owners can see and approve join requests. Share
+  members can see each other's display names, today's completed room tasks,
+  weekly task counts, points and areas to improve. Room owners can manage task
+  names, descriptions, points and schedules, and approve join requests. Share
   room references and friend codes only with people you intend to invite.
-- **Profile photo:** If you choose a photo, it is uploaded to private Supabase
-  Storage, with a limit of 2 MB per image. Access requires your authenticated
-  account; profile display uses a temporary signed link.
+- **Profiles:** Profiles contain your display name and friend code. The app
+  does not request photo-library access or upload/store profile images.
 - **Contact:** Contact Us opens your email app. Your email address and message
   are sent to the publisher only when you send the draft in that app.
 
@@ -47,8 +48,7 @@ is governed by their own privacy policies and terms.
 
 Azan does not sell personal information. Local reminders and preferences are
 not uploaded to the online worship service. Account and online worship data
-are shared with Supabase to provide the requested features, and the configured
-email provider processes authentication emails. Room participants can see the
+are shared with Supabase to provide the requested features. Room participants can see the
 shared worship information described above. Other network services receive
 information as needed for prayer times, Quran text and audio streaming.
 
@@ -62,11 +62,29 @@ settings. Network requests stop when you stop using the corresponding online
 features.
 
 Optional account, room and report data remains online when you uninstall the
-app or clear its storage. To request deletion of your account and associated
-online data, email `taemaomar65@gmail.com` from your registered email address.
-Profile photo replacements overwrite the same image format; previous uploads
-in other supported formats may remain until account data is removed by the
-publisher. Signing out removes the active local session.
+app or clear its storage. To permanently delete your account, open
+**Menu → Profile → Delete account**, type `DELETE`, and confirm. Successful
+deletion immediately removes your authentication account, sessions, profile,
+memberships, invitations, completions, points and reports, and your entries in
+other members' report snapshots. All rooms you own and their tasks, memberships,
+completions and reports are also deleted. Other people's accounts and rooms
+they own remain. Offline data on your device is unaffected.
+
+Without the app, request deletion by emailing `taemaomar65@gmail.com` from your
+registered email address with the subject **Azan account deletion request**.
+We verify account ownership before manually processing requests. Never send
+your password. Contact the same address for request status, or use in-app
+deletion for immediate processing. See [account deletion](account-deletion.html).
+Azan does not intentionally retain deleted account or worship records in its
+active database. Provider-managed security logs and any backups follow the
+provider's applicable retention policies.
+Signing out removes the active local session. Profile photo uploads have been
+removed; the retired photo bucket was verified to contain no uploaded objects.
+
+Room owners can delete a room and its associated tasks, memberships,
+completions and reports. Removing an individual task preserves its completion
+history and previously earned points; task edits preserve prior versions for
+weekly reporting. Members can undo their own completions for the current day.
 
 ## Children
 

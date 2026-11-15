@@ -33,7 +33,119 @@ extension AppTranslation on BuildContext {
 }
 
 const Map<String, String> _arabicTranslations = {
-  'This email link is invalid or expired. Request a new one.': 'رابط البريد غير صالح أو انتهت صلاحيته. اطلب رابطًا جديدًا.',
+  'You can now permanently delete your account and online data from your profile.':
+      'يمكنك الآن حذف حسابك وبياناتك عبر الإنترنت نهائيًا من ملفك الشخصي.',
+  'Delete account': 'حذف الحساب',
+  'Delete account permanently?': 'حذف الحساب نهائيًا؟',
+  'Delete permanently': 'الحذف نهائيًا',
+  'Type DELETE to confirm': 'اكتب DELETE للتأكيد',
+  'Your account has been deleted.': 'تم حذف حسابك.',
+  'Unable to delete your account. Please try again.':
+      'تعذّر حذف حسابك. يُرجى المحاولة مجددًا.',
+  'This permanently deletes your account, profile, memberships, completions and reports, including your entries in other members’ reports. Rooms you own and all their tasks and member progress will also be deleted. This cannot be undone. Offline prayer times, Quran and supplications remain available.':
+      'سيؤدي هذا إلى حذف حسابك وملفك الشخصي وعضوياتك وإنجازاتك وتقاريرك نهائيًا، بما في ذلك بياناتك في تقارير الأعضاء الآخرين. ستُحذف أيضًا الغرف التي تملكها وجميع مهامها وتقدم أعضائها. لا يمكن التراجع عن ذلك. ستبقى مواقيت الصلاة والقرآن والأذكار متاحة دون حساب.',
+  'What’s new': 'ما الجديد',
+  'Got it': 'فهمت',
+  'Worship together in rooms: request to join using a room reference, or invite friends to private challenges using their friend codes.':
+      'تعاونوا على العبادة في الغرف: اطلب الانضمام باستخدام رقم الغرفة، أو ادعُ أصدقاءك إلى تحديات خاصة باستخدام رموز الصداقة.',
+  'Room owners can create custom tasks with names, descriptions, points and repeating schedules, and edit or remove tasks.':
+      'يمكن لمالك الغرفة إنشاء مهام مخصصة بالأسماء والأوصاف والنقاط ومواعيد التكرار، وتعديل المهام أو إزالتها.',
+  'Room owners can remove members or delete their rooms. Removing a member keeps their past completions and points.':
+      'يمكن لمالك الغرفة إزالة الأعضاء أو حذف غرفته. تحتفظ إزالة العضو بإنجازاته ونقاطه السابقة.',
+  'Checked a task by mistake? Uncheck it to correct your progress and points.':
+      'حددت مهمة بالخطأ؟ ألغِ تحديدها لتصحيح تقدمك ونقاطك.',
+  'Weekly comparisons and areas to improve follow a Friday–Thursday week. Find your real reports in the Weekly reports tab.':
+      'تغطي المقارنات الأسبوعية والجوانب التي تحتاج إلى تحسين الفترة من الجمعة إلى الخميس. تجد تقاريرك الفعلية في تبويب التقارير الأسبوعية.',
+  'Create an account with your name, email and password, then sign in. No email confirmation code is needed.':
+      'أنشئ حسابًا باسمك وبريدك الإلكتروني وكلمة المرور، ثم سجّل الدخول. لا حاجة إلى رمز تأكيد البريد الإلكتروني.',
+  'Open your profile from the menu to view your signed-in email and friend code.':
+      'افتح ملفك الشخصي من القائمة لعرض بريد الحساب المسجّل ورمز الصداقة..',
+  'Your prayer times, Quran and supplications remain available without an account.':
+      'تبقى مواقيت الصلاة والقرآن والأذكار متاحة دون حساب.',
+  'Sign up is temporarily unavailable. Please try again later.':
+      'إنشاء الحساب غير متاح مؤقتًا. يرجى المحاولة لاحقًا.',
+  'Not scheduled today': 'غير مقررة اليوم',
+  'Mon': 'الاثنين',
+  'Tue': 'الثلاثاء',
+  'Wed': 'الأربعاء',
+  'Thu': 'الخميس',
+  'Fri': 'الجمعة',
+  'Sat': 'السبت',
+  'Sun': 'الأحد',
+  'Edit task': 'تعديل المهمة',
+  'Save changes': 'حفظ التعديلات',
+  'Remove task': 'إزالة المهمة',
+  'Remove task?': 'إزالة المهمة؟',
+  'The task is removed from the schedule. Previous completions and earned points are kept.':
+      'ستُزال المهمة من الجدول مع الاحتفاظ بالإنجازات والنقاط السابقة.',
+  'Removed task · history kept': 'مهمة أُزيلت · السجل محفوظ',
+  'Task changed. Refresh the room.': 'تغيرت المهمة. حدّث الغرفة.',
+  'Verify email': 'تأكيد البريد الإلكتروني',
+  'Verify reset code': 'تأكيد رمز استعادة الحساب',
+  'Verification code': 'رمز التحقق',
+  'Enter a 6-digit code': 'أدخل رمزًا من ٦ أرقام',
+  'Enter the 6-digit code sent to your email.':
+      'أدخل رمز التحقق المكون من ٦ أرقام الذي أُرسل إلى بريدك.',
+  'Enter the code in the app. No link is needed.':
+      'أدخل الرمز داخل التطبيق، دون الحاجة إلى فتح رابط.',
+  'If this account exists, a verification code has been sent.':
+      'إذا كان الحساب موجودًا، فقد أُرسل إليه رمز التحقق.',
+  'Resend code': 'إعادة إرسال الرمز',
+  'Change email': 'تغيير البريد الإلكتروني',
+  'Your account and friend code': 'حسابك ورمز الصداقة',
+  'Sample weekly report': 'نموذج تقرير أسبوعي',
+  'Preview sample report': 'معاينة تقرير تجريبي',
+  'Demo worship room': 'غرفة طاعة تجريبية',
+  'Demo data only. These people and points are examples, not live room activity.':
+      'بيانات تجريبية فقط. الأسماء والنقاط أمثلة، ولا تمثل نشاط غرف حقيقية.',
+  'Friday–Thursday · Cairo time. Reports arrive after each week ends.':
+      'من الجمعة إلى الخميس بتوقيت القاهرة. تصل التقارير بعد نهاية كل أسبوع.',
+  'Room details': 'تفاصيل الغرفة',
+  'Private room · invitations by friend code only':
+      'غرفة خاصة · الدعوات برمز الصديق فقط',
+  'Invite by friend code': 'دعوة برمز الصديق',
+  'Invitation pending': 'بانتظار قبول الدعوة',
+  'Join request pending': 'طلب الانضمام قيد الانتظار',
+  'members': 'أعضاء',
+  'tasks completed': 'مهام مكتملة',
+  'Members and today’s progress': 'الأعضاء وإنجازات اليوم',
+  'Completed': 'مكتمل',
+  'Not completed': 'لم يكتمل',
+  'All room tasks': 'جميع مهام الغرفة',
+  'No tasks scheduled for today.': 'لا توجد مهام مقررة لهذا اليوم.',
+  'This room is no longer available.': 'لم تعد هذه الغرفة متاحة.',
+  'Delete room?': 'حذف الغرفة؟',
+  'Delete room': 'حذف الغرفة',
+  'This permanently removes the room, tasks, completions and reports for every member.':
+      'سيؤدي ذلك إلى حذف الغرفة ومهامها وإنجازاتها وتقاريرها نهائيًا لجميع الأعضاء.',
+  'Add task': 'إضافة مهمة',
+  'Task name': 'اسم المهمة',
+  'Custom task': 'مهمة مخصصة',
+  'Start from a template': 'ابدأ من نموذج',
+  'Points per completion': 'نقاط كل إنجاز',
+  'Enter points from 1 to 1000': 'أدخل عدد نقاط من ١ إلى ١٠٠٠',
+  'Description (optional)': 'الوصف (اختياري)',
+  'Every day': 'كل يوم',
+  'Selected weekdays': 'أيام محددة من الأسبوع',
+  'Once on a date': 'مرة واحدة في تاريخ محدد',
+  'Start date': 'تاريخ البدء',
+  'Scheduled date': 'التاريخ المحدد',
+  'Select at least one weekday': 'اختر يومًا واحدًا على الأقل',
+  'This room already has a task with that name':
+      'توجد مهمة بهذا الاسم في الغرفة بالفعل',
+  'Start with daily worship templates': 'ابدأ بنماذج العبادات اليومية',
+  'Add custom tasks, points and schedules in room details.':
+      'أضف مهامًا ونقاطًا وجداول مخصصة من تفاصيل الغرفة.',
+  'Only the room owner can do this': 'يمكن لصاحب الغرفة فقط تنفيذ هذا الإجراء',
+  'A room can have up to 50 tasks': 'يمكن إضافة ٥٠ مهمة كحد أقصى لكل غرفة',
+  'Task start date cannot be in the past':
+      'لا يمكن أن يكون تاريخ بدء المهمة في الماضي',
+  'Task not found': 'لم يُعثر على المهمة',
+  'This task is not scheduled today': 'هذه المهمة غير مقررة اليوم',
+  'Friend invitations are for private rooms':
+      'دعوات الأصدقاء مخصصة للغرف الخاصة',
+  'This email link is invalid or expired. Request a new one.':
+      'رابط البريد غير صالح أو انتهت صلاحيته. اطلب رابطًا جديدًا.',
   'Worship together': 'نتعاون على الطاعة',
   'Rooms, private challenges and weekly reports':
       'غرف وتحديات خاصة وتقارير أسبوعية',
@@ -42,7 +154,7 @@ const Map<String, String> _arabicTranslations = {
   'Sign up': 'إنشاء حساب',
   'Forgot password': 'نسيت كلمة المرور',
   'Set new password': 'تعيين كلمة مرور جديدة',
-  'User name': 'اسم المستخدم',
+  'Full name': 'الاسم الكامل',
   'Email': 'البريد الإلكتروني',
   'Password': 'كلمة المرور',
   'Show password': 'إظهار كلمة المرور',
@@ -101,9 +213,6 @@ const Map<String, String> _arabicTranslations = {
       'كل يوم جديد فرصة أخرى. اختر عادة صغيرة وواظب عليها، ولا تيأس.',
   'Your consistency is growing. Keep encouraging each other!':
       'مواظبتك تنمو. واصلوا تشجيع بعضكم!',
-  'Upload photo · maximum 2 MB': 'رفع صورة · بحد أقصى ٢ ميجابايت',
-  'Choose an image of 2 MB or less.': 'اختر صورة بحجم ٢ ميجابايت أو أقل.',
-  'Choose a JPEG, PNG or WebP image.': 'اختر صورة بصيغة JPEG أو PNG أو WebP.',
   'Profile saved': 'تم حفظ الملف الشخصي',
   'Unable to save. Please try again.': 'تعذر الحفظ. حاول مرة أخرى.',
   'Saving…': 'جارٍ الحفظ…',
@@ -144,6 +253,11 @@ const Map<String, String> _arabicTranslations = {
   'Arabic': 'العربية',
   'Location': 'الموقع',
   'Update': 'تحديث',
+  'Update available': 'يتوفر تحديث',
+  'Version': 'الإصدار',
+  'A new version of Azan is available': 'يتوفر إصدار جديد من أذان',
+  'Later': 'لاحقًا',
+  'View update': 'عرض التحديث',
   'Play Adhan Audio': 'تشغيل صوت الأذان',
   'Vibration on Reminder': 'الاهتزاز عند التذكير',
   'Calculation Method': 'طريقة حساب مواقيت الصلاة',
@@ -167,11 +281,17 @@ const Map<String, String> _arabicTranslations = {
   'Isha': 'العشاء',
   'Qibla Direction': 'اتجاه القبلة',
   '✨ You are facing the Holy Kaaba!': '✨ أنت تواجه الكعبة المشرفة!',
-  'Turn your device until the needle points up':
-      'حرّك جهازك حتى يشير المؤشر إلى الأعلى',
+  'Lay your phone flat and turn until the Qibla marker points up.':
+      'ضع الهاتف أفقيًا وحرّكه حتى يشير مؤشر القبلة إلى الأعلى.',
   'Compass sensor not detected. Showing calculated angle.':
       'لم يتم اكتشاف مستشعر البوصلة. يتم عرض الزاوية المحسوبة.',
+  'Location permission is needed for compass heading.':
+      'يلزم السماح بالوصول إلى الموقع للحصول على اتجاه البوصلة.',
   'Qibla Bearing': 'اتجاه القبلة',
+  'Point the back of your phone toward the Qibla.':
+      'وجّه ظهر الهاتف نحو القبلة.',
+  'Compass accuracy is low. Move away from metal or magnets and move the phone in a figure eight.':
+      'دقة البوصلة منخفضة. ابتعد عن المعادن والمغناطيس وحرّك الهاتف على شكل رقم ٨.',
   'Distance to Kaaba': 'المسافة إلى الكعبة',
   'Heading:': 'اتجاه الجهاز:',
   'km': 'كم',
@@ -301,6 +421,16 @@ const Map<String, String> _arabicTranslations = {
   'Select time': 'اختر الوقت',
   'Delete': 'حذف',
   'Prayer Times & Daily Dhikr': 'مواقيت الصلاة والأذكار اليومية',
+  'Account created successfully. Please sign in.':
+      'تم إنشاء الحساب بنجاح. يُرجى تسجيل الدخول.',
+  'Remove member': 'إزالة العضو',
+  'Remove member?': 'إزالة العضو؟',
+  'This member will lose access to this room. Past completions and earned points are kept. Joining again requires approval or an invitation.':
+      'سيفقد هذا العضو الوصول إلى هذه الغرفة. ستُحفظ الإنجازات والنقاط السابقة. يتطلب الانضمام مجددًا موافقة أو دعوة.',
+  'Only the room owner can remove members':
+      'يمكن لمالك الغرفة فقط إزالة الأعضاء',
+  'The room owner cannot be removed': 'لا يمكن إزالة مالك الغرفة',
+  'Member is no longer in this room': 'لم يعد العضو موجودًا في هذه الغرفة',
   'AM': 'ص',
   'PM': 'م',
 };
